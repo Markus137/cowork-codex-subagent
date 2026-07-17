@@ -52,6 +52,8 @@ const GITHUB_WRITE_TOOLS = new Set([
   "update_pull_request",
   "update_ref",
 ]);
+const APPROVAL_WRITE_ALLOWLIST = Object.freeze([...GITHUB_WRITE_TOOLS].sort());
+const APPROVAL_REREQUEST_PREFIX = "COWORK_CODEX_APPROVAL_REREQUEST_V1";
 
 function safeWorkerEnvironment(source = process.env) {
   const environment = removeApiKeyEnvironment(source);
@@ -72,9 +74,14 @@ function workerResultEnvelopeInstructions(taskType) {
     `${resultEnvelopeExampleText(taskType)}\n`;
 }
 
+function approvalRerequestInstruction(state) {
+  return `After one GITHUB_WRITE_APPROVAL_DENIED result, the same write access may be requested exactly once more in the same turn. Before that second request, emit this exact machine explanation: ${APPROVAL_REREQUEST_PREFIX} | run_id=${state.id} | task_branch=${state.taskBranch} | allowed_tools=${APPROVAL_WRITE_ALLOWLIST.join(",")} | attempt=2/2. After a second denial, fail closed without another request. Timeouts and aborts are never retried.\n`;
+}
+
 function buildStartPrompt(state) {
   const { contract, roles } = state;
   return `You are SOL, the sole senior manager for run ${state.id}.\n\n` +
+    approvalRerequestInstruction(state) + "\n" +
     `Repository: ${contract.repository}\nBase branch: ${contract.baseBranch}\nTask branch (exact): ${state.taskBranch}\nTask type: ${contract.taskType}\n` +
     `Outcome: ${contract.outcome}\nScope: ${contract.scope}\n\n` +
     `Constraints:\n${bulletList(contract.constraints)}\n\n` +
@@ -111,6 +118,7 @@ function buildStartPrompt(state) {
 function buildResumePrompt(state) {
   const immutable = JSON.stringify(state.request.findings);
   return `Continue the same SOL run ${state.id}. This is the only permitted correction resume.\n` +
+    approvalRerequestInstruction(state) +
     "The following GitHub Codex-review findings are immutable evidence. Preserve each body, URL, path, and line byte-for-byte; do not rephrase, filter, rank, accept, or reject them:\n" +
     `${immutable}\n\n` +
     "Verify the findings and give the same Terra hierarchy at most one focused read-only correction package. Terra must not mutate GitHub. After accepting Terra's corrected V2, you personally apply every GitHub mutation and perform every final proof read in this main thread against the same repository, PR, base, and task branch. Run focused checks remotely where supported. Never merge.\n" +
@@ -132,7 +140,9 @@ function buildAutoReviewPolicy(state) {
   const contextCommentRule = state.contract.taskType === "implementation"
     ? "No add_comment_to_issue mutation is authorized in a SOL job. "
     : "";
+  const expectedWriteAllowlist = `The explicit expected write-tool allowlist is exactly ${APPROVAL_WRITE_ALLOWLIST.join(", ")}; every listed write is permitted only for delivery in repository ${state.contract.repository} on deterministic task branch ${state.taskBranch}, with create_pull_request targeting base ${state.contract.baseBranch}. `;
   return `Additional run-specific constraints (apply in addition to the built-in guardian policy): approval review is a runtime safety function, never a task agent. ` +
+    expectedWriteAllowlist + approvalRerequestInstruction(state) +
     `Only consider reversible, task-branch-scoped GitHub mutations for exact repository ${state.contract.repository}, base ${state.contract.baseBranch}, and task branch ${state.taskBranch} that are directly authorized by the retained user contract. ` +
     `The only candidates are create_branch for that exact branch/base; create_blob/create_tree/create_commit needed for it; create_file/update_file on that branch within scope; update_ref with branch_name equal to that exact branch and force=false; create_pull_request from that branch to that base with draft=false and a body consisting of exactly the canonical line COWORK_CODEX_GATE_V1 | run_id=${state.id} | head_sha=<that lowercase full 40-hex commit SHA> | PENDING / DO NOT MERGE and no other bytes, where the marker SHA is the latest successful task-branch commit SHA already known before the PR call; ${commitMessageRule}and non-closing, non-retargeting PR metadata updates for that same PR. ${contextCommentRule}Deny a terminal period on new creation, extra text, blank lines, duplicates, mixed variants, any other suffix or punctuation, trailing whitespace, or Markdown decoration. ` +
     `${auditRule} ` +
@@ -180,25 +190,116 @@ function policyViolation(event) {
   return githubAppTool || githubMcpTool ? null : "NON_GITHUB_MCP_BLOCKED";
 }
 
-function classifyMcpApprovalFailure(event) {
-  if (event?.type !== "item.completed" || event.item?.type !== "mcp_tool_call" || event.item?.status !== "failed") return null;
-  const server = String(event.item.server || "").normalize("NFC").trim().toLowerCase();
-  let tool = String(event.item.tool || "").normalize("NFC").trim().toLowerCase();
+function normalizedApprovalTool(event) {
+  const server = String(event?.item?.server || "").normalize("NFC").trim().toLowerCase();
+  let tool = String(event?.item?.tool || "").normalize("NFC").trim().toLowerCase();
   if (server === "codex_apps") {
     if (!tool.startsWith("github.")) return null;
     tool = tool.slice("github.".length);
   } else if (server === "github") {
     if (tool.startsWith("github.")) tool = tool.slice("github.".length);
-  } else {
-    return null;
-  }
-  if (!GITHUB_WRITE_TOOLS.has(tool)) return null;
+  } else return null;
+  return GITHUB_WRITE_TOOLS.has(tool) ? tool : null;
+}
+
+function sanitizedTargetPath(value) {
+  const pathValue = typeof value === "string" ? value.normalize("NFC").trim() : "";
+  if (!pathValue || Buffer.byteLength(pathValue, "utf8") > 512 || pathValue.startsWith("/") ||
+      pathValue.includes("\\") || /[\u0000-\u001f\u007f]/.test(pathValue) ||
+      pathValue.split("/").some((part) => !part || part === "." || part === "..")) return null;
+  return pathValue;
+}
+
+function containsSuspiciousSecretLiteral(value) {
+  if (/(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{20,}|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z0-9 ]+-----)/.test(value)) return true;
+  const candidates = value.match(/[A-Za-z0-9_+/=-]{32,}/g) || [];
+  return candidates.some((candidate) =>
+    [/[a-z]/, /[A-Z]/, /[0-9]/, /[_+/=-]/].filter((pattern) => pattern.test(candidate)).length >= 3);
+}
+
+function sanitizedDenialRationale(error) {
+  const explicit = typeof error?.rationale === "string" ? error.rationale :
+    (typeof error?.reason === "string" ? error.reason : null);
+  let value = explicit || (typeof error?.message === "string" ? error.message : "");
+  value = value.normalize("NFC").trim();
+  const reasonMatch = value.match(/\breason:\s*(.+)$/i);
+  if (!explicit && reasonMatch) value = reasonMatch[1].trim();
+  const generic = /^(?:automatic approval denied this request|auto-review denied this request|request (?:denied|rejected)|this action was rejected due to unacceptable risk)[.!]?$/i;
+  if (!value || generic.test(value) || Buffer.byteLength(value, "utf8") > 1024 ||
+      containsSuspiciousSecretLiteral(value) ||
+      /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(value) ||
+      /(?:token|credential|authorization|password|secret)\s*[:=]/i.test(value) ||
+      /(?:^|\s)(?:\/Users\/|[A-Za-z]:\\)/.test(value) ||
+      /(?:session|thread)[_-]?id\s*[:=]/i.test(value)) return "runtime_emitted_no_rationale";
+  return value;
+}
+
+function approvalFailureObservation(event, state) {
+  if (event?.type !== "item.completed" || event.item?.type !== "mcp_tool_call" || event.item?.status !== "failed") return null;
+  const tool = normalizedApprovalTool(event);
+  if (!tool) return null;
   const message = String(event.item?.error?.message || "").normalize("NFC").trim().toLowerCase();
   if (!message) return null;
-  if (/\b(?:timed out|timeout)\b/.test(message)) return "GITHUB_WRITE_APPROVAL_TIMEOUT";
-  if (message === "user cancelled mcp tool call" || /\b(?:aborted|cancelled|canceled)\b/.test(message)) return "GITHUB_WRITE_APPROVAL_ABORTED";
-  if (/\b(?:denied|rejected)\b/.test(message)) return "GITHUB_WRITE_APPROVAL_DENIED";
-  return null;
+  let code = null;
+  if (/\b(?:timed out|timeout)\b/.test(message)) code = "GITHUB_WRITE_APPROVAL_TIMEOUT";
+  else if (message === "user cancelled mcp tool call" || /\b(?:aborted|cancelled|canceled)\b/.test(message)) code = "GITHUB_WRITE_APPROVAL_ABORTED";
+  else if (/\b(?:denied|rejected)\b/.test(message)) code = "GITHUB_WRITE_APPROVAL_DENIED";
+  if (!code) return null;
+  const args = event.item.arguments && typeof event.item.arguments === "object" ? event.item.arguments : {};
+  const target = { repository: state.contract.repository, branch: state.taskBranch };
+  const safePath = sanitizedTargetPath(args.path);
+  if (safePath) target.path = safePath;
+  const detail = code === "GITHUB_WRITE_APPROVAL_DENIED"
+    ? { rationale: sanitizedDenialRationale(event.item.error), tool, target } : null;
+  return { code, detail, signature: `${tool}|${target.repository}|${target.branch}|${safePath || ""}` };
+}
+
+function classifyMcpApprovalFailure(event) {
+  const state = { contract: { repository: "" }, taskBranch: "" };
+  return approvalFailureObservation(event, state)?.code || null;
+}
+
+function approvalEventKey(event) {
+  const value = event?.item?.id;
+  if (value === undefined || value === null) return null;
+  const normalized = String(value).normalize("NFC").trim();
+  return normalized || null;
+}
+
+function sameDeferredApprovalCall(pending, event) {
+  if (event?.type !== "item.completed" || event.item?.type !== "mcp_tool_call") return false;
+  const key = approvalEventKey(event);
+  return pending.key !== null ? key === pending.key : key === null && normalizedApprovalTool(event) === pending.tool;
+}
+
+function mutationValidationError(guard) {
+  return {
+    path: guard.path,
+    rule: guard.rule,
+    expected: guard.expected || EXPECTED.HOST_EVIDENCE,
+  };
+}
+
+function createApprovalRetryTracker() {
+  const states = new Map();
+  return {
+    started(signature) {
+      const current = states.get(signature);
+      if (current === "denied_once") { states.set(signature, "retry_started"); return true; }
+      if (current === "retry_started" || current === "denied_twice") return false;
+      states.set(signature, "started");
+      return true;
+    },
+    denied(signature) {
+      const current = states.get(signature);
+      states.set(signature, current === "retry_started" ? "denied_twice" : "denied_once");
+    },
+    succeeded(signature) {
+      const recovered = states.get(signature) === "retry_started";
+      states.set(signature, "recovered");
+      return recovered;
+    },
+  };
 }
 
 function updateState(jobId, mutate, environment) {
@@ -316,10 +417,13 @@ function mergeTerminalObservation(current, fresh) {
 function finalizeTerminalJob(jobId, patch, observations, environment) {
   return updateState(jobId, (current) => {
     const merged = mergeTerminalObservation(current, trustedPublicObservation(observations));
+    const publicEvidence = patch.publicCode === "GITHUB_WRITE_APPROVAL_DENIED" && observations?.approvalDenialDetail
+      ? { ...(merged.partialEvidence || {}), approval_denial_detail: observations.approvalDenialDetail }
+      : merged.partialEvidence;
     return {
       ...current,
       ...patch,
-      publicEvidence: merged.partialEvidence,
+      publicEvidence,
       leftoverResources: merged.leftoverResources,
       prCertification: observations?.pendingCertification ?? current.prCertification,
       implementationCommit: observations?.latestImplementationCommit ?? null,
@@ -431,6 +535,8 @@ async function runWorker(jobId, options = {}) {
   let violation = null;
   let violationValidationError = null;
   let observedApprovalFailure = null;
+  const approvalRetryTracker = createApprovalRetryTracker();
+  let pendingApprovalMutationViolation = null;
   const publishProgress = createProgressPublisher(jobId, state, observations, {
     environment,
     mutateJobImpl: options.mutateJobImpl,
@@ -504,22 +610,69 @@ async function runWorker(jobId, options = {}) {
         stopChild();
         break;
       }
+      const startedTool = event?.type === "item.started" && event.item?.type === "mcp_tool_call"
+        ? normalizedApprovalTool(event) : null;
+      if (startedTool && pendingApprovalMutationViolation) {
+        violation = pendingApprovalMutationViolation.guard.code;
+        violationValidationError = mutationValidationError(pendingApprovalMutationViolation.guard);
+        stopChild();
+        break;
+      }
+      if (startedTool && APPROVAL_WRITE_ALLOWLIST.includes(startedTool)) {
+        const args = event.item.arguments && typeof event.item.arguments === "object" ? event.item.arguments : {};
+        const safePath = sanitizedTargetPath(args.path);
+        const signature = `${startedTool}|${state.contract.repository}|${state.taskBranch}|${safePath || ""}`;
+        if (!approvalRetryTracker.started(signature)) {
+          violation = "GITHUB_WRITE_APPROVAL_DENIED";
+          stopChild();
+          break;
+        }
+      }
       const blocked = policyViolation(event);
       if (blocked) {
         violation = blocked;
         stopChild();
         break;
       }
+      let handledDeferredApprovalCompletion = false;
+      if (pendingApprovalMutationViolation && event?.type === "item.completed" && event.item?.type === "mcp_tool_call") {
+        const pending = pendingApprovalMutationViolation;
+        if (!sameDeferredApprovalCall(pending, event)) {
+          violation = pending.guard.code;
+          violationValidationError = mutationValidationError(pending.guard);
+          stopChild();
+          break;
+        }
+        const deferredApprovalFailure = approvalFailureObservation(event, state);
+        if (deferredApprovalFailure) {
+          pendingApprovalMutationViolation = null;
+          handledDeferredApprovalCompletion = true;
+          observedApprovalFailure = deferredApprovalFailure.code;
+          if (deferredApprovalFailure.code === "GITHUB_WRITE_APPROVAL_DENIED") {
+            observations.approvalDenialDetail = deferredApprovalFailure.detail;
+            approvalRetryTracker.denied(deferredApprovalFailure.signature);
+          }
+        } else {
+          violation = pending.guard.code;
+          violationValidationError = mutationValidationError(pending.guard);
+          stopChild();
+          break;
+        }
+      }
       const implementationCommitGuard = validateImplementationCommitBeforeMutation(observations, state, event);
       if (!implementationCommitGuard.ok) {
-        violation = implementationCommitGuard.code;
-        violationValidationError = {
-          path: implementationCommitGuard.path,
-          rule: implementationCommitGuard.rule,
-          expected: implementationCommitGuard.expected || EXPECTED.HOST_EVIDENCE,
-        };
-        stopChild();
-        break;
+        if (startedTool && APPROVAL_WRITE_ALLOWLIST.includes(startedTool)) {
+          pendingApprovalMutationViolation = {
+            key: approvalEventKey(event),
+            tool: startedTool,
+            guard: implementationCommitGuard,
+          };
+        } else {
+          violation = implementationCommitGuard.code;
+          violationValidationError = mutationValidationError(implementationCommitGuard);
+          stopChild();
+          break;
+        }
       }
       const auditGuard = validateAuditReportBeforePullRequest(observations, state, event);
       if (!auditGuard.ok) {
@@ -541,7 +694,25 @@ async function runWorker(jobId, options = {}) {
         stopChild();
         break;
       }
-      observedApprovalFailure = classifyMcpApprovalFailure(event) || observedApprovalFailure;
+      const approvalFailure = handledDeferredApprovalCompletion ? null : approvalFailureObservation(event, state);
+      if (approvalFailure) {
+        observedApprovalFailure = approvalFailure.code;
+        if (approvalFailure.code === "GITHUB_WRITE_APPROVAL_DENIED") {
+          observations.approvalDenialDetail = approvalFailure.detail;
+          approvalRetryTracker.denied(approvalFailure.signature);
+        }
+      } else if (event?.type === "item.completed" && event.item?.type === "mcp_tool_call" && event.item?.status === "completed") {
+        const tool = normalizedApprovalTool(event);
+        if (tool && APPROVAL_WRITE_ALLOWLIST.includes(tool)) {
+          const args = event.item.arguments && typeof event.item.arguments === "object" ? event.item.arguments : {};
+          const safePath = sanitizedTargetPath(args.path);
+          const signature = `${tool}|${state.contract.repository}|${state.taskBranch}|${safePath || ""}`;
+          if (approvalRetryTracker.succeeded(signature)) {
+            observedApprovalFailure = null;
+            observations.approvalDenialDetail = null;
+          }
+        }
+      }
       if (event.type === "thread.started") {
         try {
           observedThreadId = validateThreadId(event.thread_id);
@@ -574,6 +745,11 @@ async function runWorker(jobId, options = {}) {
   clearInterval(cancellationPoll);
   process.removeListener("SIGTERM", onTermination);
   process.removeListener("SIGINT", onTermination);
+
+  if (!violation && pendingApprovalMutationViolation) {
+    violation = pendingApprovalMutationViolation.guard.code;
+    violationValidationError = mutationValidationError(pendingApprovalMutationViolation.guard);
+  }
 
   if (lineOverflow || violation) {
     const status = violation === "JOB_TIMEOUT" ? "incomplete" : "blocked";
@@ -708,6 +884,8 @@ module.exports = {
   DEFAULT_TIMEOUT_MS,
   MAX_JSONL_LINE_BYTES,
   MAX_RESULT_BYTES,
+  APPROVAL_REREQUEST_PREFIX,
+  APPROVAL_WRITE_ALLOWLIST,
   GITHUB_WRITE_TOOLS,
   PROGRESS_HEARTBEAT_MS,
   buildAutoReviewPolicy,
@@ -716,7 +894,12 @@ module.exports = {
   buildStartPrompt,
   workerResultEnvelopeInstructions,
   policyViolation,
+  approvalEventKey,
+  approvalFailureObservation,
+  approvalRerequestInstruction,
   classifyMcpApprovalFailure,
+  containsSuspiciousSecretLiteral,
+  createApprovalRetryTracker,
   createProgressPublisher,
   mergeTerminalObservation,
   runWorker,
