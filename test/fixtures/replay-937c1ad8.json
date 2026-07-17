@@ -1,0 +1,36 @@
+{
+  "source_run_id": "CFT-20260715-141500-937C1AD8",
+  "repository": "ExampleOrg/synthetic-audit",
+  "base_branch": "main",
+  "task_branch": "sol/cft-20260715-141500-937c1ad8",
+  "audit_path": ".github/audits/cft-20260715-141500-937c1ad8.md",
+  "source_path": "src/synthetic.js",
+  "audited_sha": "1111111111111111111111111111111111111111",
+  "head_sha": "2222222222222222222222222222222222222222",
+  "source_blob_sha": "3333333333333333333333333333333333333333",
+  "report_blob_sha": "4444444444444444444444444444444444444444",
+  "pr_number": 937,
+  "pr_body": "COWORK_CODEX_GATE_V1 | run_id=CFT-20260715-141500-937C1AD8 | head_sha=2222222222222222222222222222222222222222 | PENDING / DO NOT MERGE",
+  "get_pr_info_args": {
+    "repository_full_name": "ExampleOrg/synthetic-audit",
+    "pr_number": 937
+  },
+  "get_pr_info_structured": {
+    "url": "https://github.com/ExampleOrg/synthetic-audit/pull/937",
+    "number": 937,
+    "state": "open",
+    "merged": false,
+    "draft": false,
+    "body": "COWORK_CODEX_GATE_V1 | run_id=CFT-20260715-141500-937C1AD8 | head_sha=2222222222222222222222222222222222222222 | PENDING / DO NOT MERGE",
+    "title": "Synthetic audit",
+    "base": "main",
+    "base_sha": "1111111111111111111111111111111111111111",
+    "head": "sol/cft-20260715-141500-937c1ad8",
+    "head_sha": "2222222222222222222222222222222222222222"
+  },
+  "start_line": 7,
+  "end_line": 7,
+  "snippet": "export const synthetic = true;",
+  "irrelevant_fetch_count": 120,
+  "irrelevant_fetch_bytes": 6144
+}

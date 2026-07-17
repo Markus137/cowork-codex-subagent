@@ -1,0 +1,192 @@
+{
+  "skill_name": "codex-orchestration",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Replay run CFT-20260716-135002-EA345997 with the malformed COWORK_CODEX_AUDIT_EVIDENCE_V1 JSON block and verify that no pull request can be created.",
+      "expected_output": "The host blocks the create_pull_request call before execution with a dedicated audit-evidence parse code and a concrete validation path.",
+      "files": ["../../../test/fixtures/replay-ea345997.json"],
+      "expectations": [
+        "The malformed block is rejected before PR creation",
+        "The result uses AUDIT_EVIDENCE_BLOCK_PARSE_FAILED",
+        "validation_error is audit_artifact.evidence_block:json_parse_failed"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Validate audit snippets containing quotes, backslashes, tabs, Unicode, LF, CR, CRLF, U+2028, U+2029, and a final newline against the cited same-SHA range.",
+      "expected_output": "Exact content passes and every one-byte or code-unit deviation fails before the PR.",
+      "files": [],
+      "expectations": [
+        "The exact hostile snippet round-trips through JSON",
+        "The exact range content passes",
+        "Every tested deviation is rejected"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Replay Bug 17 where a persisted branch plus audit-artifact-without-PR residue is followed by a fresh observation of template PR #5.",
+      "expected_output": "The PR supersedes the obsolete no-PR residue and the public status contains exactly branch plus PR.",
+      "files": ["../../../test/fixtures/replay-ea345997.json"],
+      "expectations": [
+        "The public status retains the branch",
+        "The public status retains PR #5",
+        "The obsolete no-PR residue is removed"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Reach the audit-evidence validator with a parseable envelope whose report block disagrees with the returned audit evidence.",
+      "expected_output": "The run reaches AUDIT_EVIDENCE_UNVERIFIED with a concrete report-block mismatch path while preserving branch and PR residues.",
+      "files": [],
+      "expectations": [
+        "Bug 6 is reachable",
+        "The error path and rule are concrete",
+        "Branch and PR residues remain visible"
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "Inspect the SOL start and resume prompts and prove that one machine-readable result-envelope schema supplies all 18 top-level fields plus every nested key and type.",
+      "expected_output": "Both prompts contain the generated exact contract and canonical example, while runtime structural validation consumes the same frozen schema before semantic normalization.",
+      "files": [],
+      "expectations": [
+        "The schema contains exactly 18 top-level fields",
+        "Nested keys and primitive types come from structured child definitions",
+        "Start and resume render the same generated contract and example"
+      ]
+    },
+    {
+      "id": 6,
+      "prompt": "Validate canonical complete implementation and audit result envelopes against the host contract.",
+      "expected_output": "Both canonical envelopes validate and produce phase ready_for_quality_gate without relaxing delivery, audit, PR, or SOL-to-Terra requirements.",
+      "files": [],
+      "expectations": [
+        "The implementation envelope reaches ready_for_quality_gate",
+        "The audit envelope reaches ready_for_quality_gate",
+        "All strict delivery and audit evidence checks remain active"
+      ]
+    },
+    {
+      "id": 7,
+      "prompt": "Return tests_and_verification as an object instead of its documented array and inspect the public error.",
+      "expected_output": "The host fails closed with CODEX_RESULT_ENVELOPE_INVALID and reports path, rule, and the sanitized expected array type without echoing the received value.",
+      "files": [],
+      "expectations": [
+        "The result is blocked before the quality gate",
+        "validation_error identifies tests_and_verification:type_mismatch",
+        "validation_error includes the sanitized expected array type and no raw value"
+      ]
+    },
+    {
+      "id": 8,
+      "prompt": "Inject unknown top-level and nested secret fields into a job report before MCP formatting and inspect both text and structuredContent.",
+      "expected_output": "The strict public projection drops all unknown data, sanitizes expected, preserves valid public residues and result data, and never leaks the injected strings.",
+      "files": [],
+      "expectations": [
+        "Unknown top-level and nested fields are absent from structuredContent",
+        "Raw expected text is replaced by an allowlisted public description",
+        "Valid branch, PR, recovery, and result evidence remains available"
+      ]
+    },
+    {
+      "id": 9,
+      "prompt": "Replay the real 1CDB3BEA, F1275700, and 8DA59548 runs plus every terminal reason without Codex, GitHub, or network access.",
+      "expected_output": "Every public terminal response preserves the strongest host-observed branch, commit, and PR residue; the successful 8DA reference remains ready for the quality gate.",
+      "files": ["../../../test/fixtures/replay-1cdb3bea.json", "../../../test/fixtures/replay-f1275700.json", "../../../test/fixtures/replay-8da59548.json"],
+      "expectations": [
+        "All required terminal states are produced from fixtures in one offline command",
+        "Observed branch or PR evidence can never terminate with empty leftover_resources",
+        "The three real-run regression fixtures produce their expected public outcomes"
+      ]
+    },
+    {
+      "id": 10,
+      "prompt": "Validate a future audit envelope with audit_evidence:null against the exact-head committed report and exact audited-SHA source ranges.",
+      "expected_output": "The host derives one authoritative audit-evidence object from the verified report, hydrates the public result, and returns a bounded field-level mismatch for a conflicting legacy envelope.",
+      "files": ["../../../test/fixtures/replay-f1275700.json"],
+      "expectations": [
+        "Future audit envelopes contain no second hand-authored evidence copy",
+        "Host hydration requires an exact-head full report and byte-exact cited ranges",
+        "Legacy mismatches expose bounded redacted envelope-versus-artifact previews"
+      ]
+    },
+    {
+      "id": 11,
+      "prompt": "Inspect the new pull-request path after the paired 1CDB3BEA and F1275700 approval outcomes.",
+      "expected_output": "Terra remains read-only, SOL performs mutations and final proof reads in the observable parent thread, and PR creation accepts only the exact canonical marker as the entire body.",
+      "files": ["../../../test/fixtures/replay-1cdb3bea.json", "../../../test/fixtures/replay-f1275700.json"],
+      "expectations": [
+        "The denial is classified as an active external approval-policy rejection rather than a timeout",
+        "SOL owns every GitHub mutation and final proof read in the main thread",
+        "A new PR body is exactly the canonical marker with no other bytes"
+      ]
+    },
+    {
+      "id": 12,
+      "prompt": "Inspect a completed implementation pull request and prove that its human-readable explanation is preserved without changing the marker-only pull-request body.",
+      "expected_output": "The body remains the exact canonical marker and one bounded, neutral, host-verified same-PR comment records Problem, Change, Rationale, and Verification including checked scope.",
+      "files": [],
+      "expectations": [
+        "The pull-request body remains exactly the canonical marker",
+        "One same-PR comment preserves Problem, Change, Rationale, and Verification with checked scope",
+        "The comment is bounded and contains no mention, URL, or gate sentinel; audit tasks create no context comment"
+      ]
+    },
+    {
+      "id": 13,
+      "prompt": "Exercise denial, timeout, abort, retry, and resume behavior around the implementation context-comment write.",
+      "expected_output": "Any failed first comment attempt preserves the already-created branch and pull request, a second attempt is rejected before mutation, and a resumed run cannot duplicate or alter verified comment evidence.",
+      "files": [],
+      "expectations": [
+        "DENIED, TIMEOUT, and ABORTED comment writes preserve the branch and pull request",
+        "A second add_comment_to_issue attempt is rejected before it can succeed",
+        "A resumed run reuses persisted proof and cannot duplicate, edit, replace, or re-fetch the comment"
+      ]
+    },
+    {
+      "id": 14,
+      "prompt": "Audit every Codex Automatic-review observation and local fixture reference for evidence date, epistemic status, and guarantee language.",
+      "expected_output": "Historical behavior is dated and labeled observed or reported rather than guaranteed, the current local reference fixture is named explicitly, and the context comment's effect on an already-started Automatic review remains live-unverified.",
+      "files": ["../../../test/fixtures/final-issue-comment-template-pr4.json"],
+      "expectations": [
+        "Historical automatic-review observations are dated and not presented as guarantees",
+        "final-issue-comment-template-pr4.json is named as the current local reference",
+        "The neutral comment's external Automatic-review effect is explicitly live-unverified"
+      ]
+    },
+    {
+      "id": 15,
+      "prompt": "Inspect a completed implementation pull request and prove that its explanation survives without any GitHub write beyond the already necessary commit and pull request.",
+      "expected_output": "The PR body remains byte-exactly marker-only while the final branch-effective commit carries one bounded run-bound message with Problem, Change, Rationale, and Verification.",
+      "files": [],
+      "expectations": [
+        "The final pull-request body is byte-exactly the original canonical marker-only line",
+        "The final branch-effective implementation commit preserves Problem, Change, Rationale, and Verification with checked scope",
+        "The explanation adds no comment write or comment fetch and audit behavior remains unchanged"
+      ]
+    },
+    {
+      "id": 16,
+      "prompt": "Exercise direct-file and low-level commit binding, multiple commits, no-op resume, and a real correction without adding an approval-gated context write.",
+      "expected_output": "The host accepts only the latest valid branch-effective explained commit, validates low-level update_ref using branch_name, persists an exact private resume seed, and requires a fresh message for every real correction.",
+      "files": [],
+      "expectations": [
+        "Opaque successful update_ref results are accepted while optional contradictory rich fields fail closed",
+        "A no-op resume may reuse only an exact validated private seed",
+        "A later real correction replaces the seed with a fresh explained branch-effective commit and the final PR head must match it"
+      ]
+    },
+    {
+      "id": 17,
+      "prompt": "Audit the Automatic-review evidence hierarchy after removing the implementation context-comment write.",
+      "expected_output": "Historical review behavior stays dated and non-guaranteed, the current local fixture remains explicit, and implementation explanations use necessary commit messages rather than a separate review-affecting comment.",
+      "files": ["../../../test/fixtures/final-issue-comment-template-pr4.json"],
+      "expectations": [
+        "Historical automatic-review observations remain dated and are not presented as guarantees",
+        "final-issue-comment-template-pr4.json remains the named current local reference",
+        "The implementation explanation is carried by an already necessary commit message, not a separate PR comment"
+      ]
+    }
+  ]
+}

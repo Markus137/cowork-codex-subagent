@@ -1,0 +1,24 @@
+{
+  "name": "cowork-codex-subagent",
+  "owner": {
+    "name": "Markus Streifinger"
+  },
+  "metadata": {
+    "description": "Cowork-native host bridge for bounded, GitHub-only Codex-First orchestration, status, resume, and review.",
+    "version": "1.2.9"
+  },
+  "plugins": [
+    {
+      "name": "cowork-codex-subagent",
+      "source": "./",
+      "description": "Cowork-native host bridge for bounded, GitHub-only Codex-First orchestration, status, resume, and review.",
+      "version": "1.2.9",
+      "author": {
+        "name": "Markus Streifinger"
+      },
+      "license": "MIT",
+      "repository": "https://github.com/Markus137/cowork-codex-subagent",
+      "keywords": ["codex", "cowork", "github", "orchestration", "code-review", "mcp"]
+    }
+  ]
+}

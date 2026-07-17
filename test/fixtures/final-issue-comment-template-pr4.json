@@ -1,0 +1,31 @@
+{
+  "evidence_kind": "observed_final_codex_issue_comment",
+  "observed_date": "2026-07-16",
+  "repository": "example-org/web-template",
+  "pr_number": 4,
+  "pr_url": "https://github.com/example-org/web-template/pull/4",
+  "head_sha": "23652c4dac90ab4069dde1d3dcaeb6fc88d0a9da",
+  "known_commit_shas": [
+    "23652c4dac90ab4069dde1d3dcaeb6fc88d0a9da"
+  ],
+  "head_change_events_since_final_trigger": 0,
+  "final_trigger": {
+    "id": 4988770330,
+    "url": "https://github.com/example-org/web-template/pull/4#issuecomment-4988770330",
+    "created_at": "2026-07-16T06:11:06Z"
+  },
+  "response_event": {
+    "kind": "issue_comment",
+    "id": 4988786178,
+    "actor_login": "chatgpt-codex-connector[bot]",
+    "created_at": "2026-07-16T06:13:25Z",
+    "url": "https://github.com/example-org/web-template/pull/4#issuecomment-4988786178",
+    "pr_number": 4,
+    "pr_url": "https://github.com/example-org/web-template/pull/4",
+    "body": "Codex Review: Didn't find any major issues. Can't wait for the next one!\n\n**Reviewed commit:** `23652c4dac`",
+    "review_comments": []
+  },
+  "review_submissions_observed": 0,
+  "inline_review_comments_observed": 0,
+  "final_reactions_observed": 0
+}

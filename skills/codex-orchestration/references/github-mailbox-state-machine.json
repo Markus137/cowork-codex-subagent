@@ -1,0 +1,199 @@
+{
+  "version": 1,
+  "transport": "github-shared-mailbox",
+  "states": [
+    "IMPLEMENTATION_PENDING",
+    "INITIAL_AUTO_REVIEW_PENDING",
+    "OPTIONAL_CORRECTION",
+    "FINAL_REVIEW_REQUESTED",
+    "STOPPED"
+  ],
+  "limits": {
+    "initial_codex_jobs": 1,
+    "implementation_context_comment_writes": 0,
+    "initial_manual_review_comments": 0,
+    "correction_resumes_max": 1,
+    "final_review_comments": 1,
+    "certification_comments": 1,
+    "poll_interval_seconds_min": 60,
+    "review_retries": 0
+  },
+  "implementation": {
+    "repository_transport": "GITHUB_MCP_ONLY",
+    "required_hierarchy": "SOL>TERRA",
+    "runtime_capability_missing": "blocked",
+    "required_result_fields": [
+      "repository",
+      "base_branch",
+      "task_branch",
+      "head_sha",
+      "pr_number",
+      "pr_url"
+    ]
+  },
+  "audit_pre_pr_gate": {
+    "last_completed_report_write_retained": true,
+    "single_sentinel_json_block_required": true,
+    "parse_schema_and_binding_failures_distinct": true,
+    "full_report_self_fetch_before_pr": true,
+    "same_sha_range_fetches_before_pr": true,
+    "pr_item_started_rejected_on_failure": true,
+    "hostile_snippet_serialization": "json_stringify_roundtrip_and_byte_exact_range",
+    "snippet_normalization": false,
+    "shared_audit_evidence_normalizer": true,
+    "pre_pr_legacy_verification_array": "reject"
+  },
+  "running_progress": {
+    "source": "successful_same_repository_github_events_only",
+    "material_phases": ["branch_created", "commit_observed", "pr_created", "pr_verified"],
+    "read_only_heartbeat_seconds_min": 60,
+    "timer_only_heartbeat": false,
+    "raw_tool_data_persisted": false,
+    "terminal_state_wins_race": true,
+    "terminal_observation_merge": "fresh_union_persisted_residues",
+    "terminal_resources_max": 2,
+    "pull_request_supersedes_commit_residue": true
+  },
+  "wall_clock": {
+    "structured_field": "wall_clock_limit_minutes",
+    "default_minutes": 45,
+    "minimum_minutes": 15,
+    "maximum_minutes": 120,
+    "progress_extends_deadline": false,
+    "approval_wait_excluded": false
+  },
+  "pending_marker": {
+    "canonical_template": "COWORK_CODEX_GATE_V1 | run_id=<RUN_ID> | head_sha=<CREATED_40_HEX> | PENDING / DO NOT MERGE",
+    "sha_source": "latest_successful_task_branch_commit_known_before_pr_call",
+    "accepted_variants": ["canonical", "canonical_plus_one_terminal_ascii_period"],
+    "same_variant_create_args_result_and_final_read": true,
+    "final_read_body_match": "byte_exact_original_marker_only_line",
+    "duplicates_mixed_variants_other_suffixes_whitespace_markdown": "reject"
+  },
+  "implementation_commit_explanation": {
+    "task_type": "implementation_only",
+    "write_count_added": 0,
+    "commit_tools": ["create_file", "update_file", "create_commit"],
+    "low_level_branch_effective_after": "successful_update_ref_exact_task_branch_name_sha_force_false",
+    "line_order": ["subject", "blank", "header", "Problem", "Change", "Rationale", "Verification"],
+    "header": "COWORK_CODEX_IMPLEMENTATION_V1 | run_id=<RUN_ID>",
+    "sections": ["Problem", "Change", "Rationale", "Verification"],
+    "subject_utf8_bytes_max": 72,
+    "section_utf8_bytes_max": 384,
+    "total_utf8_bytes_max": 2048,
+    "forbidden": ["control_character", "at_mention", "url", "COWORK_CODEX_GATE_V1", "COWORK_CODEX_PR_CONTEXT_V1", "extra_line", "final_newline"],
+    "host_proof": "final_pr_head_equals_last_branch_effective_explained_commit",
+    "resume_seed": "private_exact_run_repository_branch_sha_message_and_tool_validation",
+    "no_op_resume": "existing_valid_branch_effective_seed_allowed",
+    "fresh_correction": "new_valid_branch_effective_message_replaces_seed",
+    "quality_gate_evidence": false
+  },
+  "pr_missing_recovery": {
+    "automatic_retry": false,
+    "audit_residue": "audit_artifact_committed_pr_missing",
+    "recovery": "manual_one_pr_from_exact_unchanged_branch_and_head",
+    "forbid_mutation_merge_delete_close_cleanup": true
+  },
+  "approval_observation": {
+    "active_call_state": "running",
+    "terminal_approval_pending_envelope": "invalid",
+    "timeout_precedes_denial_classification": true
+  },
+  "review_match": {
+    "configured_actor_login": "chatgpt-codex-connector[bot]",
+    "actor_login_normalization": ["unicode_nfc", "case_fold", "optional_trailing_[bot]_suffix"],
+    "reject_display_names_and_other_logins": true,
+    "recorded_full_head_sha": "40_hex",
+    "review_commit_markers": ["Reviewed commit: <hex-prefix>", "**Reviewed commit:** `<hex-prefix>`"],
+    "review_commit_prefix_min_length": 10,
+    "review_commit_prefix_must_be_hex": true,
+    "review_commit_prefix_must_match_exactly_one_known_pr_commit": true,
+    "current_pr_head_must_equal_recorded_full_head_sha": true,
+    "head_change_events_after_stage_boundary_max": 0,
+    "created_after_stage_boundary": true,
+    "review_bundle": "submission_plus_zero_or_more_inline_comments_joined_by_pull_request_review_id",
+    "zero_comment_review_bundle": "clean_only_with_valid_submission_and_true_priority_absence",
+    "finding_markers": ["![P0 Badge]..![P3 Badge]", "- [P0]..- [P3]"],
+    "finding_priorities": ["P0", "P1", "P2", "P3"],
+    "priority_scan_statuses": ["absent", "canonical", "malformed", "unknown", "multiple"],
+    "unknown_priority_includes": ["P4", "P5+"],
+    "noncanonical_priority_status": "reject",
+    "reviewed_commit_material": "exactly_one_canonical_marker_only",
+    "malformed_or_multiple_reviewed_commit_material": "reject",
+    "accepted_finding_fields": ["priority", "body", "url", "path", "line"],
+    "reaction_authority_fields": ["actor_login", "full_created_at", "target_type", "target_id", "canonical_target_url"],
+    "reaction_authority_source": "github_issues_or_reaction_api_not_browser_dom_or_inference",
+    "missing_issues_read_or_authoritative_reaction_data": "blocked_or_incomplete_no_pass",
+    "plugin_can_grant_github_permission": false,
+    "stale_review_policy": "ignore",
+    "head_change_policy": "stop_incomplete"
+  },
+  "initial_review": {
+    "record_fields": ["ready_at", "expected_head_sha", "known_pr_commit_shas", "pr_number", "pr_url"],
+    "allowed_event_kinds": ["reaction", "review_bundle"],
+    "rejected_event_kinds": ["issue_comment"],
+    "clean_evidence": ["authoritative_bot_+1_reaction_on_exact_pull_request_after_ready_at", "valid_zero_comment_review_bundle_with_true_priority_absence"],
+    "findings_evidence": "later_bot_review_bundle_with_unambiguous_reviewed_commit_prefix_and_genuine_inline_comments"
+  },
+  "correction": {
+    "transport": "cowork_host_mcp_codex_exec_resume_same_job",
+    "finding_copy": "byte-for-byte",
+    "same_repository_pr_base_branch": true,
+    "no_op": "reuse_validated_private_implementation_commit_seed",
+    "real_change": "fresh_explained_branch_effective_commit_required"
+  },
+  "final_trigger": {
+    "body": "@codex review",
+    "standalone_exact": true,
+    "post_count": 1,
+    "record_fields": ["final_trigger_comment_id", "final_trigger_url", "created_at", "expected_head_sha", "known_pr_commit_shas"],
+    "allowed_response_event_kinds": ["reaction", "review_bundle", "issue_comment"],
+    "clean_evidence": ["authoritative_bot_+1_reaction_on_exact_final_trigger_issue_comment", "valid_zero_comment_review_bundle_with_true_priority_absence", "strict_clean_issue_comment"],
+    "unscoped_pull_request_+1": "reject",
+    "temporary_eyes_reaction": "ignore",
+    "strict_clean_issue_comment": {
+      "response_id": "positive_unique_and_not_trigger_id",
+      "response_url": "canonical_same_pr_issuecomment_url",
+      "pr_identity": "exact_pr_number_and_canonical_pr_url",
+      "actor_and_time": "expected_bot_and_strictly_after_trigger",
+      "head": "unchanged_with_zero_intervening_changes",
+      "reviewed_commit_marker": "exactly_one_canonical_marker_matching_expected_head",
+      "review_comments": "explicit_empty_array",
+      "priority_material": "true_absence_only",
+      "reassuring_prose": "not_evidence"
+    },
+    "issue_comment_findings": "reject_without_authoritative_raw_inline_mapping_no_synthesis",
+    "findings_evidence": "later_bot_review_bundle_with_unambiguous_reviewed_commit_prefix_and_genuine_inline_comments"
+  },
+  "certification": {
+    "actor": "Fable",
+    "body_template": "COWORK_CODEX_GATE_V1 | run_id=<RUN_ID> | head_sha=<FINAL_40_HEX> | PASS",
+    "standalone_exact": true,
+    "post_count": 1,
+    "requires_final_validator_clean": true,
+    "requires_unchanged_final_head": true,
+    "post_failure": "incomplete",
+    "non_clean_or_blocked": "no_pass_pending_remains",
+    "pr_body_pending_marker_is_historical": true
+  },
+  "forbidden": [
+    "local_git",
+    "local_clone",
+    "local_worktree",
+    "local_review_runner",
+    "github_actions",
+    "openai_api_key",
+    "claude_mcp",
+    "fable_call",
+    "second_correction",
+    "second_final_trigger",
+    "third_review",
+    "implementation_context_comment_write",
+    "pr_body_edit",
+    "draft_toggle",
+    "close_pr",
+    "merge_pr",
+    "delete_pr_or_branch",
+    "unbounded_retry"
+  ]
+}

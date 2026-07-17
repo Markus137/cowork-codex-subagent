@@ -1,0 +1,21 @@
+{
+  "source_run_id": "CFT-20260716-135002-EA345997",
+  "repository": "example-org/web-template",
+  "base_branch": "main",
+  "task_type": "audit",
+  "task_branch": "sol/cft-20260716-135002-ea345997",
+  "audit_path": ".github/audits/cft-20260716-135002-ea345997.md",
+  "audited_sha": "1111111111111111111111111111111111111111",
+  "head_sha": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "pr_number": 5,
+  "pr_url": "https://github.com/example-org/web-template/pull/5",
+  "pr_state": "open",
+  "pr_draft": false,
+  "invalid_report_content": "# Audit\n\n<!-- COWORK_CODEX_AUDIT_EVIDENCE_V1\n{\"schema\":\"cowork-codex-audit-evidence/v1\",\"repository\":\"example-org/web-template\",\"base_branch\":\"main\",\"report_path\":\".github/audits/cft-20260716-135002-ea345997.md\",\"audit_evidence\":{\"audited_sha\":\"1111111111111111111111111111111111111111\",\"scope\":[\"App\"],\"findings\":[\"Import found\"],\"verification\":\"Range fetched\",\"line_evidence\":[{\"path\":\"src/App.jsx\",\"start_line\":1,\"end_line\":1,\"snippet\":\"import Impressum from \"./pages/Impressum\";\"}]}}\nCOWORK_CODEX_AUDIT_EVIDENCE_V1 -->",
+  "expected_pre_pr_code": "AUDIT_EVIDENCE_BLOCK_PARSE_FAILED",
+  "expected_validation_error": {
+    "path": "audit_artifact.evidence_block",
+    "rule": "json_parse_failed",
+    "expected": "host-observed GitHub evidence satisfying the named rule"
+  }
+}
