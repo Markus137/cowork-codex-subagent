@@ -10,6 +10,19 @@ Repository names in the recorded observations below are neutral placeholders
 (`example-org/web-template`, `example-org/example-app`); the observations
 themselves are otherwise unchanged.
 
+## 1.2.10
+
+Improves GitHub write-denial handling with sanitized
+`partial_evidence.approval_denial_detail`, an explicit five-tool allowlist bound
+to the deterministic task branch, and one fail-closed re-request carrying a
+run-bound machine explanation. A third matching attempt is blocked.
+
+The commit-stage replay for `CFT-20260717-204250-3279BBF5` records a created
+branch at zero ahead/behind, no commit, no pull request, and no runtime rationale
+in the available replay. The worker therefore reports
+`runtime_emitted_no_rationale` without claiming that every runtime denial is
+structurally rationale-free.
+
 ## 1.2.9
 
 Resolves Bug 23 by moving the implementation explanation from the additional
