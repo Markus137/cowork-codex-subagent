@@ -1,0 +1,16 @@
+{
+  "source_run_id": "CFT-20260715-130750-AF8688FD",
+  "sanitized": true,
+  "repository": "ExampleCo/example-site",
+  "base_branch": "main",
+  "task_branch": "sol/cft-20260715-130750-af8688fd",
+  "task_type": "audit",
+  "audit_path": ".github/audits/cft-20260715-130750-af8688fd.md",
+  "audited_sha": "dddddddddddddddddddddddddddddddddddddddd",
+  "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "pr_number": 104,
+  "source_path": "src/pages/Impressum.tsx",
+  "start_line": 20,
+  "end_line": 20,
+  "snippet": "<h2>Angaben gemäß § 5 DDG</h2>"
+}

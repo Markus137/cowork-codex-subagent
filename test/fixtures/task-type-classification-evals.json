@@ -1,0 +1,12 @@
+{
+  "audit": [
+    { "id": "inspect_only_de", "prompt": "Prüfe das Repository auf Fehler und dokumentiere das Ergebnis." },
+    { "id": "fix_if_found_de", "prompt": "Sieh dir den Checkout an und behebe etwas nur, falls du einen echten Defekt findest." },
+    { "id": "review_en", "prompt": "Review the repository and report whether a change is justified." }
+  ],
+  "implementation": [
+    { "id": "known_fix_de", "prompt": "Ändere den bekannten falschen Preis von 19 auf 29 Euro." },
+    { "id": "requested_feature_de", "prompt": "Füge den beschriebenen Export-Button hinzu." },
+    { "id": "known_change_en", "prompt": "Replace the deprecated endpoint with the specified new endpoint." }
+  ]
+}

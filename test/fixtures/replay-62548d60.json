@@ -1,0 +1,13 @@
+{
+  "source_run_id": "CFT-20260716-033135-62548D60",
+  "repository": "ExampleOrg/synthetic-audit",
+  "base_branch": "main",
+  "task_branch": "sol/cft-20260716-033135-62548d60",
+  "audit_path": ".github/audits/cft-20260716-033135-62548d60.md",
+  "head_sha": "ce9ce9ce9ce9ce9ce9ce9ce9ce9ce9ce9ce9ce9c",
+  "denial_message": "This action was rejected due to unacceptable risk. Reason: The PR creation is in the authorized repo/branch scope, but the body does not contain the required exact standalone pending-marker line because it ends with an extra period, so the security policy requires denial.",
+  "pr_body_marker": "COWORK_CODEX_GATE_V1 | run_id=CFT-20260716-033135-62548D60 | head_sha=ce9ce9ce9ce9ce9ce9ce9ce9ce9ce9ce9ce9ce9c | PENDING / DO NOT MERGE.",
+  "expected_status": "blocked",
+  "expected_code": "GITHUB_WRITE_APPROVAL_DENIED",
+  "expected_phase": "blocked"
+}

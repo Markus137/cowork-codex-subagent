@@ -1,0 +1,14 @@
+{
+  "source_run_id": "CFT-20260715-133032-76760B4C",
+  "sanitized": true,
+  "repository": "ExampleCo/example-site",
+  "base_branch": "main",
+  "task_branch": "sol/cft-20260715-133032-76760b4c",
+  "task_type": "implementation",
+  "base_ref": "main",
+  "envelope_head_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "finding_path": "src/pages/Impressum.tsx",
+  "expected_status": "blocked",
+  "expected_code": "CODEX_RESULT_ENVELOPE_INVALID",
+  "expected_phase": "result_validation"
+}

@@ -1,0 +1,163 @@
+{
+  "source_run_id": "CFT-20260716-171224-F1275700",
+  "repository": "example-org/web-template",
+  "base_branch": "main",
+  "task_branch": "sol/cft-20260716-171224-f1275700",
+  "audit_path": ".github/audits/cft-20260716-171224-f1275700.md",
+  "audited_sha": "a6dc0d1389e8c97fc9dda75b810f1975480f6556",
+  "head_sha": "da6fb4f6a6b215412e68ea169af54fbdac022fed",
+  "pr_number": 7,
+  "pr_url": "https://github.com/example-org/web-template/pull/7",
+  "raw_envelope": {
+    "run_id": "CFT-20260716-171224-F1275700",
+    "status": "complete",
+    "reason_code": null,
+    "repository": "example-org/web-template",
+    "base_branch": "main",
+    "task_branch": "sol/cft-20260716-171224-f1275700",
+    "head_sha": "da6fb4f6a6b215412e68ea169af54fbdac022fed",
+    "pr_number": 7,
+    "pr_url": "https://github.com/example-org/web-template/pull/7",
+    "work_summary": "Die Impressum-Seite und ihre Route wurden gegen die verlangten Angaben geprüft. Es wurde kein mechanisch belegbarer Produktdefekt festgestellt; Produktdateien blieben unverändert. Das Audit-Artefakt dokumentiert Pflichtangaben, erkennbare und unklare Platzhalter sowie offene kundenspezifische Angaben. PR #7 ist offen, ready for review, nicht gemerged und enthält genau eine geänderte Datei.",
+    "resources_consulted": [
+      {
+        "resource": "src/pages/Impressum.tsx at a6dc0d1389e8c97fc9dda75b810f1975480f6556",
+        "evidence": "Die vollständige Datei sowie alle zitierten UTF-8-Zeilenbereiche wurden über GitHub MCP gelesen."
+      },
+      {
+        "resource": "src/App.tsx at a6dc0d1389e8c97fc9dda75b810f1975480f6556",
+        "evidence": "Import und rendernde Route wurden vollständig beziehungsweise zeilengenau über GitHub MCP geprüft."
+      },
+      {
+        "resource": "Pull request #7",
+        "evidence": "Der abschließende GitHub-MCP-Read bestätigte state=open, draft=false, merged=false, base=main und den erwarteten Head-SHA."
+      }
+    ],
+    "changes_or_artifacts": [
+      {
+        "artifact": ".github/audits/cft-20260716-171224-f1275700.md",
+        "kind": "created_file",
+        "evidence": "Substantiver Auditbericht mit vollständiger Checkliste, Platzhalterbewertung, offenen Duplizierungsaufgaben, Verifikationsgrenzen und genau einem maschinenlesbaren Evidenzblock."
+      }
+    ],
+    "audit_evidence": {
+      "audited_sha": "a6dc0d1389e8c97fc9dda75b810f1975480f6556",
+      "scope": [
+        "Audited src/pages/Impressum.tsx and the rendering import/route in src/App.tsx on main.",
+        "Checked the requested § 5 DDG disclosure categories, § 18 Abs. 2 MStV, placeholder recognizability, legal citations, and EU OS-platform references."
+      ],
+      "findings": [
+        "The Impressum is rendered at /impressum, declares /impressum/ as canonical, and cites § 5 DDG and § 18 Abs. 2 MStV correctly.",
+        "Company name, address, representative, email, and the § 18 Abs. 2 MStV responsible-person block are recognizable template placeholders; the bare telephone number and hardcoded GmbH legal form are not independently marked and must be verified or replaced during duplication.",
+        "Register court/number, VAT ID under § 27a UStG, and competent supervisory authority are missing; applicability is customer-specific and no values may be invented.",
+        "No EU OS-platform reference or link is present; no mechanically established product defect requires a product-file change."
+      ],
+      "verification": "Fetched both scoped files completely from GitHub at audited SHA a6dc0d1389e8c97fc9dda75b810f1975480f6556, then re-fetched every cited exact UTF-8 range at that same SHA and compared each report snippet to the returned range content; no build or runtime test was performed.",
+      "line_evidence": [
+        {
+          "path": "src/pages/Impressum.tsx",
+          "start_line": 8,
+          "end_line": 9,
+          "snippet": "        description=\"Impressum und Anbieterkennzeichnung gemäß § 5 DDG.\"\n        canonical=\"/impressum/\""
+        },
+        {
+          "path": "src/pages/Impressum.tsx",
+          "start_line": 20,
+          "end_line": 24,
+          "snippet": "              <h2 className=\"text-2xl font-semibold text-foreground mb-4\">Angaben gemäß § 5 DDG</h2>\n              <p>\n                [Firmenname] GmbH<br />\n                Musterstraße 1<br />\n                80000 München"
+        },
+        {
+          "path": "src/pages/Impressum.tsx",
+          "start_line": 31,
+          "end_line": 32,
+          "snippet": "                Telefon: +49 89 12345678<br />\n                E-Mail: info@example.com"
+        },
+        {
+          "path": "src/pages/Impressum.tsx",
+          "start_line": 38,
+          "end_line": 38,
+          "snippet": "              <p>[Name des Geschäftsführers]</p>"
+        },
+        {
+          "path": "src/pages/Impressum.tsx",
+          "start_line": 43,
+          "end_line": 48,
+          "snippet": "                Verantwortlich für den Inhalt nach § 18 Abs. 2 MStV\n              </h2>\n              <p>\n                [Name]<br />\n                Musterstraße 1<br />\n                80000 München"
+        },
+        {
+          "path": "src/pages/Impressum.tsx",
+          "start_line": 55,
+          "end_line": 56,
+          "snippet": "                Wir sind nicht bereit oder verpflichtet, an Streitbeilegungsverfahren vor einer\n                Verbraucherschlichtungsstelle teilzunehmen."
+        },
+        {
+          "path": "src/App.tsx",
+          "start_line": 21,
+          "end_line": 21,
+          "snippet": "import Impressum from \"./pages/Impressum\";"
+        },
+        {
+          "path": "src/App.tsx",
+          "start_line": 91,
+          "end_line": 91,
+          "snippet": "                  <Route path=\"/impressum\" element={<Impressum />} />"
+        }
+      ]
+    },
+    "tests_and_verification": [
+      "Alle acht zitierten Bereiche wurden nach dem finalen Commit erneut am auditierten SHA mit exakten Zeilengrenzen und UTF-8 abgerufen; die Snippets stimmten überein.",
+      "Der vollständige Bericht wurde vor PR-Erstellung am finalen Head-SHA ohne Range selbst abgerufen; genau ein öffnender und ein schließender Evidenz-Sentinel waren vorhanden.",
+      "Der finale PR-Read bestätigte PR #7 als offen, non-draft, unmerged, mit base main, exaktem Task-Branch und Head-SHA da6fb4f6a6b215412e68ea169af54fbdac022fed.",
+      "Der PR umfasst einen Commit, eine geänderte Datei, 69 Ergänzungen und keine Löschungen; kein Build- oder Laufzeittest wurde durchgeführt."
+    ],
+    "SOL_to_Terra_evidence": {
+      "sol_revision": "SOL verlangte für V2 eine vollständige finale Berichtsfassung, genau einen erlaubten Status je Pflichtangabe, die Klassifikation fehlender bedingter Angaben als `fehlt`, frisch gefetchte Canonical-Evidenz, byte-identische Snippets, genau einen JSON.stringify-Maschinenblock und einen ausdrücklichen Produkt-Null-Diff.",
+      "sol_v2_review": "SOL prüfte V2 gegen die testbaren Revisionspunkte und akzeptierte sie erst, nachdem alle zehn Checklistenpositionen genau einen erlaubten Status hatten, die Canonical-Aussage frisch belegt war, genau ein Maschinenblock vorlag und der Produkt-Null-Diff feststand.",
+      "terra_v1": "Read-only V1 audited both scoped files at base SHA, supplied the complete checklist, placeholder assessment, mechanical findings, report proposal, and exact line evidence.",
+      "terra_v2": "After SOL's testable revision, V2 supplied the complete final report with 10 allowed-status checklist rows, conditional missing categories, freshly fetched canonical evidence, JSON.stringify machine block, and explicit product null-diff; SOL accepted V2 before mutations."
+    },
+    "finding_dispositions": [
+      {
+        "url": "https://github.com/example-org/web-template/blob/a6dc0d1389e8c97fc9dda75b810f1975480f6556/src/pages/Impressum.tsx#L22",
+        "path": "src/pages/Impressum.tsx",
+        "line": 22,
+        "disposition": "Dokumentiert, nicht geändert",
+        "evidence": "Firmenname ist erkennbarer Platzhalter; die hart codierte Rechtsform GmbH ist kundenspezifisch zu verifizieren und darf nicht erfunden werden."
+      },
+      {
+        "url": "https://github.com/example-org/web-template/blob/a6dc0d1389e8c97fc9dda75b810f1975480f6556/src/pages/Impressum.tsx#L31",
+        "path": "src/pages/Impressum.tsx",
+        "line": 31,
+        "disposition": "Dokumentiert, nicht geändert",
+        "evidence": "Die plausible Telefonnummer ist nicht eindeutig als Platzhalter gekennzeichnet und muss beim Duplizieren ersetzt oder verifiziert werden."
+      },
+      {
+        "url": "https://github.com/example-org/web-template/blob/a6dc0d1389e8c97fc9dda75b810f1975480f6556/src/pages/Impressum.tsx#L43",
+        "path": "src/pages/Impressum.tsx",
+        "line": 43,
+        "disposition": "Korrekte Rechtsgrundlage; kundenspezifisch prüfen",
+        "evidence": "§ 18 Abs. 2 MStV ist korrekt zitiert; die darunterstehenden Platzhalter sind bei Anwendbarkeit zu ersetzen, andernfalls ist der Abschnitt zu entfernen."
+      },
+      {
+        "url": "https://github.com/example-org/web-template/blob/a6dc0d1389e8c97fc9dda75b810f1975480f6556/src/pages/Impressum.tsx",
+        "path": "src/pages/Impressum.tsx",
+        "line": null,
+        "disposition": "Fehlende bedingte Angaben dokumentiert",
+        "evidence": "Registergericht/-nummer, USt-IdNr. und Aufsichtsbehörde fehlen; ihre Anwendbarkeit und echten Werte sind kundenspezifisch festzustellen."
+      },
+      {
+        "url": "https://github.com/example-org/web-template/blob/da6fb4f6a6b215412e68ea169af54fbdac022fed/.github/audits/cft-20260716-171224-f1275700.md#L1",
+        "path": ".github/audits/cft-20260716-171224-f1275700.md",
+        "line": 1,
+        "disposition": "Audit-Artefakt erstellt",
+        "evidence": "Der Bericht ist die einzige Datei im PR-Diff; Produktdateien wurden nicht geändert."
+      }
+    ],
+    "risks_or_blockers": [
+      "Rechtsform und Telefonnummer wirken produktiv, sind aber nicht eindeutig als Platzhalter markiert; sie müssen bei jeder Duplizierung ausdrücklich verifiziert oder ersetzt werden.",
+      "Registerangaben, USt-IdNr. und Aufsichtsbehörde sind nicht vorhanden; ob sie erforderlich sind, hängt von der jeweiligen Kundenseite ab.",
+      "Die Anwendbarkeit von § 18 Abs. 2 MStV und alle echten Unternehmensdaten konnten anhand des Templates nicht verifiziert werden."
+    ],
+    "next_action": "PR #7 fachlich prüfen; vor Übernahme auf eine Kundenseite sämtliche im Audit genannten Platzhalter und bedingten Pflichtangaben mit echten, verifizierten Kundendaten bearbeiten. Den PR nicht mergen, solange der PENDING-Marker besteht."
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "should_trigger": [
+    { "id": "repo_research", "prompt": "Recherchiere die aktuelle offizielle Stripe-Dokumentation für example-app und aktualisiere die technische Entscheidung im GitHub-Repo." },
+    { "id": "repo_analysis", "prompt": "Analysiere die im Repository dokumentierten Checkout-Fehler und öffne eine PR mit Ursache und Fix." },
+    { "id": "repo_comparison", "prompt": "Vergleiche für dieses GitHub-Projekt drei Versanddienstleister und halte die begründete Entscheidung als ADR im Repo fest." },
+    { "id": "repo_planning", "prompt": "Erstelle für example-org/example-app einen Migrationsplan mit Risiken und Acceptance Checks und liefere ihn per PR." },
+    { "id": "repo_implementation", "prompt": "Implementiere im aktuellen GitHub-Repo den neuen Checkout und stelle sicher, dass die vorhandenen Tests weiterlaufen." },
+    { "id": "repo_review", "prompt": "Geh das GitHub-Repo durch, finde die Ursache des Fehlers und öffne eine saubere PR." },
+    { "id": "repo_document", "prompt": "Überarbeite den Vertragsentwurf im Projekt-Repository und liefere eine konsistente neue Fassung per PR." },
+    { "id": "repo_content", "prompt": "Schreibe aus dem Briefing die Landingpage im Repository neu und öffne einen überprüfbaren Pull Request." },
+    { "id": "repo_connector", "prompt": "Lies die relevanten Slack-Threads als Quellenpaket für die Checkout-Änderung und setze das Ergebnis im aktuellen GitHub-Repo um." },
+    { "id": "repo_explicit", "prompt": "Nutze Codex First für example-org/example-app und lass SOL mit Terra eine PR ausarbeiten." },
+    { "id": "repo_research_en", "prompt": "Research the latest official guidance for this GitHub project and update the repository decision record in a pull request." },
+    { "id": "repo_planning_en", "prompt": "Build a migration plan for the current repository with dependencies and rollback risks, then commit it through a PR." },
+    { "id": "repo_implementation_en", "prompt": "Inspect the GitHub repository, fix the regression, and open a reviewable pull request." },
+    { "id": "repo_document_en", "prompt": "Rewrite the proposal stored in the project repository and deliver the new version through GitHub." },
+    { "id": "repo_connector_en", "prompt": "Read the relevant Notion pages as a source pack for this repository change, then implement the decision in the current GitHub project." }
+  ],
+  "should_not_trigger": [
+    { "id": "fileless_research", "prompt": "Recherchiere die aktuellsten offiziellen Informationen zu diesem Anbieter und fasse sie zusammen." },
+    { "id": "fileless_analysis", "prompt": "Analysiere diese Zahlen und erkläre, warum die Conversion gefallen ist." },
+    { "id": "fileless_comparison", "prompt": "Vergleiche drei Zahlungsanbieter und gib mir eine Empfehlung." },
+    { "id": "fileless_planning", "prompt": "Erstelle einen allgemeinen Produktlaunch-Plan ohne Bezug zu einem Repository." },
+    { "id": "fileless_document", "prompt": "Schreibe aus diesen Notizen ein neues Memo, das nicht in ein GitHub-Projekt gehört." },
+    { "id": "fileless_connector", "prompt": "Lies meine Slack-Threads und fasse die offenen Entscheidungen zusammen." },
+    { "id": "greeting", "prompt": "Hallo!" },
+    { "id": "installation", "prompt": "Wie installiere ich das Plugin in Cowork?" },
+    { "id": "status", "prompt": "Ist der laufende Codex-Job schon fertig?" },
+    { "id": "confirmation", "prompt": "Okay, verstanden." },
+    { "id": "short_followup", "prompt": "Was meinst du hier mit SOL?" },
+    { "id": "safety_clarification", "prompt": "Frag mich zuerst, welches Repository du verändern darfst." },
+    { "id": "fileless_research_en", "prompt": "Research the latest official guidance and give me a general recommendation without changing a repository." },
+    { "id": "fileless_connector_en", "prompt": "Read the relevant Notion pages and summarize them for me; this is not a repository task." },
+    { "id": "installation_en", "prompt": "How do I reload the plugin?" },
+    { "id": "status_en", "prompt": "Is the current SOL job still running?" },
+    { "id": "short_followup_en", "prompt": "What does Terra mean here?" }
+  ]
+}

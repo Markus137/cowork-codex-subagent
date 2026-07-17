@@ -1,0 +1,166 @@
+{
+  "source_run_id": "CFT-20260716-170246-1CDB3BEA",
+  "repository": "example-org/web-template",
+  "base_branch": "main",
+  "task_branch": "sol/cft-20260716-170246-1cdb3bea",
+  "audit_path": ".github/audits/cft-20260716-170246-1cdb3bea.md",
+  "audited_sha": "a6dc0d1389e8c97fc9dda75b810f1975480f6556",
+  "head_sha": "ddcffca36f9018b462bdea3cca4a92dbaefe9502",
+  "expected_code": "GITHUB_WRITE_APPROVAL_DENIED",
+  "raw_envelope": {
+    "run_id": "CFT-20260716-170246-1CDB3BEA",
+    "status": "blocked",
+    "reason_code": "GITHUB_WRITE_APPROVAL_DENIED",
+    "repository": "example-org/web-template",
+    "base_branch": "main",
+    "task_branch": "sol/cft-20260716-170246-1cdb3bea",
+    "head_sha": "ddcffca36f9018b462bdea3cca4a92dbaefe9502",
+    "pr_number": null,
+    "pr_url": null,
+    "work_summary": "Das Impressum wurde gegen die vorgegebene §-5-DDG-Checkliste geprüft. Der Task-Branch enthält ausschließlich das vollständige Audit-Artefakt; Produktdateien blieben unverändert. Die Erstellung des nicht-draft Pull Requests wurde vom automatischen Approval-Reviewer abgelehnt.",
+    "resources_consulted": [
+      {
+        "resource": "src/pages/Impressum.tsx@a6dc0d1389e8c97fc9dda75b810f1975480f6556",
+        "evidence": "Die vollständige Impressum-Komponente sowie alle sieben zitierten Bereiche wurden über GitHub MCP am auditierten SHA gelesen."
+      },
+      {
+        "resource": "src/App.tsx@a6dc0d1389e8c97fc9dda75b810f1975480f6556",
+        "evidence": "Die vollständige Routendatei und die exakte Route in Zeile 91 wurden über GitHub MCP gelesen."
+      },
+      {
+        "resource": ".github/audits/cft-20260716-170246-1cdb3bea.md@ddcffca36f9018b462bdea3cca4a92dbaefe9502",
+        "evidence": "Der vollständige finale Bericht wurde nach dem Commit am exakten Head-SHA per UTF-8-Self-fetch gelesen; der einzelne Evidenzblock und seine kompakte JSON-Payload wurden geprüft."
+      }
+    ],
+    "changes_or_artifacts": [
+      {
+        "artifact": ".github/audits/cft-20260716-170246-1cdb3bea.md",
+        "kind": "created_file",
+        "evidence": "Einziges Artefakt auf dem Task-Branch; enthält Fundort und Route, vollständige Checkliste, Platzhalterbewertung, offene Duplizierungspunkte, Verifikation und maschinenlesbare Evidenz."
+      }
+    ],
+    "audit_evidence": {
+      "audited_sha": "a6dc0d1389e8c97fc9dda75b810f1975480f6556",
+      "scope": [
+        "Geprüft wurden ausschließlich src/pages/Impressum.tsx und die rendernde Route in src/App.tsx auf dem angegebenen SHA.",
+        "Die Prüfung folgt der im Auftrag vorgegebenen Checkliste zu § 5 DDG, § 18 Abs. 2 MStV, Platzhalter-Erkennbarkeit und veralteten Verweisen auf die EU-OS-Plattform."
+      ],
+      "findings": [
+        "Die Impressum-Seite ist unter /impressum geroutet und verwendet bereits den aktuellen Verweis auf § 5 DDG.",
+        "Name, Anschrift, Vertretungsberechtigter, Telefon, E-Mail und die Angaben nach § 18 Abs. 2 MStV sind als Templatewerte vorhanden; Firmenname und Personennamen sind eindeutig geklammert, Musteranschrift, Beispielrufnummer und example.com-Adresse sind im Zusammenhang als Platzhalter erkennbar.",
+        "Die Rechtsform GmbH ist nicht als Platzhalter markiert und deshalb für die spätere Kundenseite unklar; sie muss beim Duplizieren bestätigt oder ersetzt werden.",
+        "Registergericht und Registernummer, USt-IdNr. nach § 27a UStG sowie zuständige Aufsichtsbehörde sind nicht angegeben; ihre Erforderlichkeit ist ohne echte Unternehmens- und Tätigkeitsdaten unklar und beim Duplizieren zu prüfen.",
+        "Ein Verweis auf die eingestellte EU-OS-Plattform oder ein veralteter §-5-TMG-Verweis wurde im geprüften Scope nicht gefunden. Die geprüfte Seite enthält außer dem Canonical-Wert keinen Link; dessen Erreichbarkeit wurde nicht im Browser oder Netzwerk geprüft. Daher ist keine Produktdateiänderung belegt."
+      ],
+      "verification": "src/pages/Impressum.tsx und src/App.tsx wurden über GitHub am vollständigen SHA a6dc0d1389e8c97fc9dda75b810f1975480f6556 vollständig gelesen; alle sieben Evidenzbereiche wurden für V2 zusätzlich als exakte UTF-8-Zeilenbereiche über GitHub erneut abgerufen. Es wurden keine Build-, Browser- oder Netzwerkprüfungen ausgeführt.",
+      "line_evidence": [
+        {
+          "path": "src/App.tsx",
+          "start_line": 91,
+          "end_line": 91,
+          "snippet": "                  <Route path=\"/impressum\" element={<Impressum />} />"
+        },
+        {
+          "path": "src/pages/Impressum.tsx",
+          "start_line": 8,
+          "end_line": 9,
+          "snippet": "        description=\"Impressum und Anbieterkennzeichnung gemäß § 5 DDG.\"\n        canonical=\"/impressum/\""
+        },
+        {
+          "path": "src/pages/Impressum.tsx",
+          "start_line": 20,
+          "end_line": 24,
+          "snippet": "              <h2 className=\"text-2xl font-semibold text-foreground mb-4\">Angaben gemäß § 5 DDG</h2>\n              <p>\n                [Firmenname] GmbH<br />\n                Musterstraße 1<br />\n                80000 München"
+        },
+        {
+          "path": "src/pages/Impressum.tsx",
+          "start_line": 29,
+          "end_line": 32,
+          "snippet": "              <h2 className=\"text-2xl font-semibold text-foreground mb-4\">Kontakt</h2>\n              <p>\n                Telefon: +49 89 12345678<br />\n                E-Mail: info@example.com"
+        },
+        {
+          "path": "src/pages/Impressum.tsx",
+          "start_line": 37,
+          "end_line": 38,
+          "snippet": "              <h2 className=\"text-2xl font-semibold text-foreground mb-4\">Geschäftsführer</h2>\n              <p>[Name des Geschäftsführers]</p>"
+        },
+        {
+          "path": "src/pages/Impressum.tsx",
+          "start_line": 42,
+          "end_line": 48,
+          "snippet": "              <h2 className=\"text-2xl font-semibold text-foreground mb-4\">\n                Verantwortlich für den Inhalt nach § 18 Abs. 2 MStV\n              </h2>\n              <p>\n                [Name]<br />\n                Musterstraße 1<br />\n                80000 München"
+        },
+        {
+          "path": "src/pages/Impressum.tsx",
+          "start_line": 53,
+          "end_line": 56,
+          "snippet": "              <h2 className=\"text-2xl font-semibold text-foreground mb-4\">Streitschlichtung</h2>\n              <p>\n                Wir sind nicht bereit oder verpflichtet, an Streitbeilegungsverfahren vor einer\n                Verbraucherschlichtungsstelle teilzunehmen."
+        }
+      ]
+    },
+    "tests_and_verification": [
+      "Alle sieben Evidenzbereiche wurden am auditierten SHA als exakte UTF-8-Zeilenbereiche über GitHub MCP erneut abgerufen.",
+      "Der vollständige finale Bericht wurde am Head-SHA ddcffca36f9018b462bdea3cca4a92dbaefe9502 ohne Range selbst abgerufen.",
+      "Der Bericht enthält genau einen Sentinelblock; dessen kompakte Einzeilen-Payload wurde erfolgreich als JSON geparst.",
+      "Der Branch enthält keine Änderung an src/pages/Impressum.tsx oder src/App.tsx.",
+      "Keine Build-, Browser- oder Netzwerkprüfung wurde ausgeführt.",
+      "Die PR-Erstellung wurde versucht, aber vom automatischen Approval-Reviewer abgelehnt; deshalb existiert kein PR und es konnte kein finaler PR-Read erfolgen."
+    ],
+    "SOL_to_Terra_evidence": {
+      "sol_revision": "V1 musste für V2 eine vollständige 11-Punkte-Matrix mit genau einem erlaubten Status je Punkt, sieben erneut gelesene byte-exakte Snippets, einen parsebaren kompakten JSON-Block, den testbaren Null-Produktdiff sowie getrennte Aussagen zu Route, TMG- und OS-Plattform-Verweisen liefern.",
+      "sol_v2_review": "V2 wurde akzeptiert: Statusmatrix und Evidenz waren vollständig, die Aussagen blieben auf tatsächlich durchgeführte GitHub-Dateilesungen begrenzt, GmbH wurde nur als unklarer möglicher Platzhalter dokumentiert und der Null-Produktdiff bestätigt.",
+      "terra_v1": "V1 identifizierte den auditierten SHA, Route und Canonical, die vorhandenen Templatewerte, die unmarkierte Rechtsform GmbH, bedingt erforderliche fehlende Angaben sowie das Fehlen mechanisch belegbarer Produktmängel.",
+      "terra_v2": "V2 lieferte den vollständigen finalen Markdown-Bericht, exakt elf Checklistenstatus, sieben erneut abgerufene byte-exakte Evidenzbereiche und den kompakten maschinenlesbaren Evidenzblock; nach Abnahme wurde ausschließlich das Audit-Artefakt committed und vollständig selbst gelesen."
+    },
+    "finding_dispositions": [
+      {
+        "url": "https://github.com/example-org/web-template/blob/a6dc0d1389e8c97fc9dda75b810f1975480f6556/src/App.tsx#L91",
+        "path": "src/App.tsx",
+        "line": 91,
+        "disposition": "vorhanden",
+        "evidence": "Die Route rendert Impressum unter /impressum."
+      },
+      {
+        "url": "https://github.com/example-org/web-template/blob/a6dc0d1389e8c97fc9dda75b810f1975480f6556/src/pages/Impressum.tsx#L20",
+        "path": "src/pages/Impressum.tsx",
+        "line": 20,
+        "disposition": "kein Produktfix",
+        "evidence": "Die Seite verweist bereits auf die aktuelle Rechtsgrundlage § 5 DDG."
+      },
+      {
+        "url": "https://github.com/example-org/web-template/blob/a6dc0d1389e8c97fc9dda75b810f1975480f6556/src/pages/Impressum.tsx#L22",
+        "path": "src/pages/Impressum.tsx",
+        "line": 22,
+        "disposition": "unklarer Platzhalter",
+        "evidence": "Der Firmenname ist geklammert, die Rechtsform GmbH dagegen nicht; sie muss beim Duplizieren bestätigt oder ersetzt werden."
+      },
+      {
+        "url": "https://github.com/example-org/web-template/blob/a6dc0d1389e8c97fc9dda75b810f1975480f6556/src/pages/Impressum.tsx#L31",
+        "path": "src/pages/Impressum.tsx",
+        "line": 31,
+        "disposition": "Platzhalter",
+        "evidence": "Telefonnummer und nachfolgende example.com-Adresse sind erkennbare Musterdaten und müssen ersetzt werden."
+      },
+      {
+        "url": "https://github.com/example-org/web-template/blob/a6dc0d1389e8c97fc9dda75b810f1975480f6556/src/pages/Impressum.tsx#L43",
+        "path": "src/pages/Impressum.tsx",
+        "line": 43,
+        "disposition": "Platzhalter",
+        "evidence": "§ 18 Abs. 2 MStV wird korrekt bezeichnet; Anwendbarkeit und verantwortliche Person sind kundenseitig zu prüfen."
+      },
+      {
+        "url": "https://github.com/example-org/web-template/blob/ddcffca36f9018b462bdea3cca4a92dbaefe9502/.github/audits/cft-20260716-170246-1cdb3bea.md",
+        "path": ".github/audits/cft-20260716-170246-1cdb3bea.md",
+        "line": null,
+        "disposition": "Audit-Artefakt erstellt",
+        "evidence": "Der vollständige Audit-Bericht ist auf dem Task-Branch committed und wurde am finalen Head-SHA selbst gelesen."
+      }
+    ],
+    "risks_or_blockers": [
+      "Der erforderliche Pull Request konnte nicht erstellt werden, weil der automatische Approval-Reviewer die GitHub-Mutation ablehnte.",
+      "Ohne Pull Request ist die Akzeptanzbedingung open, ready for review und non-draft nicht erfüllbar.",
+      "Registerdaten, USt-IdNr., Aufsichtsbehörde, tatsächliche Rechtsform und §-18-MStV-Anwendbarkeit bleiben ohne echte Kundendaten kundenseitig zu klären."
+    ],
+    "next_action": "Die GitHub-Schreibfreigabe für create_pull_request muss durch den Host ermöglicht werden; anschließend ist aus dem unveränderten Head ddcffca36f9018b462bdea3cca4a92dbaefe9502 ein nicht-draft PR gegen main mit dem vorgeschriebenen PENDING-Marker zu erstellen und abschließend über GitHub zu lesen."
+  }
+}
