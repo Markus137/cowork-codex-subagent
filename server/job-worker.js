@@ -537,6 +537,15 @@ async function runWorker(jobId, options = {}) {
     const queue = tool ? startedWriteSignatures.get(tool) : null;
     return queue && queue.length ? queue.shift() : null;
   };
+  // Outstanding approval failures keyed by write signature, so a recovered write clears only its
+  // own failure and any other still-outstanding denial/timeout/abort remains the observed outcome.
+  const outstandingApprovalFailures = new Map();
+  const syncApprovalFailure = () => {
+    const entries = [...outstandingApprovalFailures.values()];
+    const last = entries.length ? entries[entries.length - 1] : null;
+    observedApprovalFailure = last ? last.code : null;
+    observations.approvalDenialDetail = last && last.code === "GITHUB_WRITE_APPROVAL_DENIED" ? last.detail : null;
+  };
   const publishProgress = createProgressPublisher(jobId, state, observations, {
     environment,
     mutateJobImpl: options.mutateJobImpl,
@@ -669,16 +678,17 @@ async function runWorker(jobId, options = {}) {
       }
       const approvalFailure = approvalFailureObservation(event, state);
       if (approvalFailure) {
-        observedApprovalFailure = approvalFailure.code;
         const failedTool = normalizedApprovalTool(event);
         const signature = dequeueStartedSignature(failedTool) || approvalFailure.signature;
         if (approvalFailure.code === "GITHUB_WRITE_APPROVAL_DENIED") {
-          observations.approvalDenialDetail = approvalFailure.detail;
           approvalRetryTracker.denied(signature);
+          outstandingApprovalFailures.set(signature, { code: approvalFailure.code, detail: approvalFailure.detail });
         } else {
           // Timeouts and aborts are never retried; block any further attempt on this write.
           approvalRetryTracker.terminated(signature);
+          outstandingApprovalFailures.set(signature, { code: approvalFailure.code, detail: null });
         }
+        syncApprovalFailure();
       } else if (event?.type === "item.completed" && event.item?.type === "mcp_tool_call" && event.item?.status === "completed") {
         const tool = normalizedApprovalTool(event);
         if (tool && APPROVAL_WRITE_ALLOWLIST.includes(tool)) {
@@ -686,8 +696,9 @@ async function runWorker(jobId, options = {}) {
           const recomputed = `${tool}|${state.contract.repository}|${state.taskBranch}|${sanitizedTargetPath(args.path) || ""}`;
           const signature = dequeueStartedSignature(tool) || recomputed;
           if (approvalRetryTracker.succeeded(signature)) {
-            observedApprovalFailure = null;
-            observations.approvalDenialDetail = null;
+            // Clear only the recovered write; other outstanding denials/timeouts stay observed.
+            outstandingApprovalFailures.delete(signature);
+            syncApprovalFailure();
           }
         }
       }

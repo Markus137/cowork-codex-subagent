@@ -2555,3 +2555,39 @@ test("two same-tool writes in flight track denials per call, not per tool", asyn
   assert.equal(report.status, replay.expected_status);
   assert.equal(report.code, replay.expected_code);
 }));
+
+test("a recovered write does not erase another still-outstanding approval failure", async () => withJobs(async (environment) => {
+  const replay = JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures", "replay-3c7f1e62.json"), "utf8"));
+  const base = stateFor(replay.source_run_id);
+  const state = stateFor(replay.source_run_id, {
+    contract: { ...base.contract, repository: replay.repository, baseBranch: replay.base_branch },
+    taskBranch: replay.task_branch,
+  });
+  writeJob(state, { environment });
+  const startFor = (targetPath, subject) => ({
+    type: "item.started",
+    item: {
+      type: "mcp_tool_call", server: "codex_apps", tool: "github.create_file",
+      arguments: { repository_full_name: replay.repository, branch: replay.task_branch, path: targetPath, message: implementationMessage(replay.source_run_id, { subject }), content: "x" },
+    },
+  });
+  const denyNoArgs = { type: "item.completed", item: { type: "mcp_tool_call", server: "codex_apps", tool: "github.create_file", status: "failed", error: { message: "automatic approval denied this request" } } };
+  const successA = completedGithubEvent("create_file", replay.repository,
+    { branch: replay.task_branch, path: replay.recovered_path, message: implementationMessage(replay.source_run_id, { subject: "Recovered write" }), content: "x" },
+    { commit_sha: "a".repeat(40) });
+  const events = [
+    { type: "thread.started", thread_id: THREAD_ID },
+    startFor(replay.recovered_path, "Recovered write"),
+    denyNoArgs,                                          // recovered_path denied once
+    startFor(replay.still_denied_path, "Other write"),
+    denyNoArgs,                                          // still_denied_path denied once (stays outstanding)
+    startFor(replay.recovered_path, "Recovered write"),  // recovered_path retried
+    successA,                                            // recovered_path succeeds on its allowed retry
+  ];
+  await runWorker(replay.source_run_id, terminalWorkerOptions(environment, events));
+  const report = resultJob(replay.source_run_id, { environment });
+  // The other write's denial is still outstanding, so the terminal must report the approval
+  // denial, not fall back to CODEX_RUN_FAILED.
+  assert.equal(report.status, replay.expected_status);
+  assert.equal(report.code, replay.expected_code);
+}));

@@ -20,6 +20,10 @@ Closes two edge cases in the 1.2.10 write-denial handling.
   an empty-path signature, and two same-tool writes in flight no longer
   overwrite each other's tracking. A denied path reliably reaches `denied_once`,
   and a third re-request for the same path fails closed.
+- Outstanding approval failures are tracked per write signature, so a write that
+  recovers on its allowed retry clears only its own failure. Another still-open
+  denial or timeout remains the observed terminal outcome instead of falling
+  back to `CODEX_RUN_FAILED`.
 - A first-write denial (for example `create_branch` failing approval before any
   branch is observed) now surfaces the sanitized denial rationale to the caller:
   `sanitizedPublicEvidence` accepts a denial-only evidence object carrying only
