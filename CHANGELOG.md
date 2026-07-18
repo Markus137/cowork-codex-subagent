@@ -10,6 +10,33 @@ Repository names in the recorded observations below are neutral placeholders
 (`example-org/web-template`, `example-org/example-app`); the observations
 themselves are otherwise unchanged.
 
+## 1.2.10
+
+Hardens GitHub write-denial handling and publishes a sanitized
+`partial_evidence.approval_denial_detail` on a denied write.
+
+- Denials are recorded before implementation-commit-message validation, so a
+  denied `create_commit` fails closed as `GITHUB_WRITE_APPROVAL_DENIED` instead
+  of being masked by `IMPLEMENTATION_COMMIT_MESSAGE_INVALID`.
+- The published denial rationale is redacted: labelled and unlabelled
+  credential formats, high-entropy blobs, host paths, and session/thread
+  identifiers are dropped in favor of `runtime_emitted_no_rationale`; only a
+  genuinely benign rationale is preserved verbatim.
+- The bounded one-retry re-request tracker now covers every policy-authorized
+  write tool bound to the deterministic task branch — `create_blob`,
+  `create_branch`, `create_commit`, `create_file`, `create_pull_request`,
+  `create_tree`, `update_file`, `update_pull_request`, and `update_ref` — not
+  just the core delivery writes. A third matching attempt fails closed.
+- All published release versions are synchronized to 1.2.10 (plugin manifest,
+  runtime `PLUGIN_VERSION`, marketplace manifest, README, and both skill
+  manifests).
+
+The commit-stage replay for `CFT-20260717-204250-3279BBF5` records a created
+branch at zero ahead/behind, no commit, no pull request, and no runtime
+rationale in the available replay. The worker therefore reports
+`runtime_emitted_no_rationale` without claiming that every runtime denial is
+structurally rationale-free.
+
 ## 1.2.9
 
 Resolves Bug 23 by moving the implementation explanation from the additional

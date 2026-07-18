@@ -2294,3 +2294,116 @@ test("future audit null envelope is hydrated only from exact host-observed repor
   assert.deepEqual(result.result.audit_evidence, replay.raw_envelope.audit_evidence);
   assert.notEqual(result.result.audit_evidence, null);
 }));
+
+
+// --- 1.2.10 approval-denial hardening regressions (PR #2 findings 1-3) ---
+
+test("commit-stage denial reports approval denial, not commit-message invalid, with sanitized detail", async () => withJobs(async (environment) => {
+  const replay = JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures", "replay-3279bbf5.json"), "utf8"));
+  const base = stateFor(replay.source_run_id);
+  const state = stateFor(replay.source_run_id, {
+    contract: { ...base.contract, repository: replay.repository, baseBranch: replay.base_branch },
+    taskBranch: replay.task_branch,
+  });
+  writeJob(state, { environment });
+  const argumentsValue = {
+    repository_full_name: replay.repository, branch: replay.task_branch, path: "src/change.js",
+    content: "must-not-leak", token: "credential-must-not-leak", session_id: "internal-must-not-leak",
+  };
+  const events = [
+    { type: "thread.started", thread_id: THREAD_ID },
+    completedGithubEvent("create_branch", replay.repository,
+      { branch_name: replay.task_branch, base_ref: replay.base_branch }, { branch: replay.task_branch }),
+    { type: "item.started", item: { type: "mcp_tool_call", server: "codex_apps", tool: "github.create_commit", arguments: argumentsValue } },
+    { type: "item.completed", item: {
+      type: "mcp_tool_call", server: "codex_apps", tool: "github.create_commit", status: "failed",
+      arguments: argumentsValue, error: { message: "Automatic approval denied this request" },
+    } },
+  ];
+  await runWorker(replay.source_run_id, terminalWorkerOptions(environment, events));
+  const report = resultJob(replay.source_run_id, { environment });
+  assert.equal(report.status, replay.expected_status);
+  assert.equal(report.phase, replay.expected_phase);
+  assert.equal(report.code, replay.expected_code);
+  assert.notEqual(report.code, "IMPLEMENTATION_COMMIT_MESSAGE_INVALID");
+  assert.deepEqual(report.partial_evidence.approval_denial_detail, {
+    rationale: "runtime_emitted_no_rationale", tool: "create_commit",
+    target: { repository: replay.repository, branch: replay.task_branch, path: "src/change.js" },
+  });
+  const serialized = JSON.stringify(report.partial_evidence.approval_denial_detail);
+  assert.doesNotMatch(serialized, /must-not-leak|credential|session_id/);
+}));
+
+test("denial rationale redacts unlabelled credentials and high-entropy values", () => {
+  const { approvalFailureObservation, containsSuspiciousSecretLiteral } = require("../server/job-worker");
+  const state = { id: "CFT-20260717-204250-3279BBF5", contract: { repository: "ExampleOrg/synthetic-implementation" }, taskBranch: "sol/cft-20260717-204250-3279bbf5" };
+  const denial = (error) => approvalFailureObservation({
+    type: "item.completed",
+    item: { type: "mcp_tool_call", server: "codex_apps", tool: "github.create_commit", status: "failed", arguments: { path: "src/x.js" }, error },
+  }, state);
+  // Unlabelled GitHub token embedded in a free-form rationale must not surface.
+  assert.equal(denial({ message: "automatic approval denied this request", reason: "content still contains ghp_ABCDEFGHIJKLMNOPQRSTUV" }).detail.rationale, "runtime_emitted_no_rationale");
+  // High-entropy blob without a token:/secret: label is treated as suspicious.
+  assert.equal(denial({ message: "denied", rationale: "value a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6q7R8 rejected" }).detail.rationale, "runtime_emitted_no_rationale");
+  // A genuinely benign rationale is preserved verbatim.
+  assert.equal(denial({ message: "denied", rationale: "branch is outside the allowed scope" }).detail.rationale, "branch is outside the allowed scope");
+  assert.equal(containsSuspiciousSecretLiteral("ghp_ABCDEFGHIJKLMNOPQRSTUV"), true);
+  assert.equal(containsSuspiciousSecretLiteral("outside the allowed scope"), false);
+});
+
+test("approval re-request tracker bounds retries for every policy-authorized write tool", () => {
+  const { APPROVAL_WRITE_ALLOWLIST, createApprovalRetryTracker } = require("../server/job-worker");
+  for (const tool of APPROVAL_WRITE_ALLOWLIST) {
+    const tracker = createApprovalRetryTracker();
+    const access = `${tool}|ExampleOrg/synthetic-implementation|sol/cft-example|`;
+    assert.equal(tracker.started(access), true, `${tool}: first attempt`);
+    tracker.denied(access);
+    assert.equal(tracker.started(access), true, `${tool}: one bounded retry`);
+    tracker.denied(access);
+    assert.equal(tracker.started(access), false, `${tool}: fail closed before third`);
+  }
+  for (const tool of ["create_branch", "create_blob", "create_tree", "update_pull_request"]) {
+    assert.equal(APPROVAL_WRITE_ALLOWLIST.includes(tool), true, `${tool} must be tracked`);
+  }
+});
+
+test("worker fails closed on a third denied re-request for a non-core write tool", async () => withJobs(async (environment) => {
+  const id = "CFT-20260717-214541-0883FBF3";
+  writeJob(stateFor(id), { environment });
+  const branchEvent = (type, status) => ({
+    type,
+    item: {
+      type: "mcp_tool_call", server: "codex_apps", tool: "github.create_branch",
+      ...(status ? { status } : {}),
+      arguments: { repository_full_name: CONTRACT.repository, branch_name: taskBranchFor(id), base_ref: CONTRACT.base_branch },
+      ...(status === "failed" ? { error: { message: "automatic approval denied this request" } } : {}),
+    },
+  });
+  const events = [
+    { type: "thread.started", thread_id: THREAD_ID },
+    branchEvent("item.started"),
+    branchEvent("item.completed", "failed"),
+    branchEvent("item.started"),
+    branchEvent("item.completed", "failed"),
+    branchEvent("item.started"),
+  ];
+  await runWorker(id, terminalWorkerOptions(environment, events));
+  const report = resultJob(id, { environment });
+  assert.equal(report.status, "blocked");
+  assert.equal(report.code, "GITHUB_WRITE_APPROVAL_DENIED");
+}));
+
+test("approval policy and start prompt bind the full write-tool allowlist and re-request marker", () => {
+  const { APPROVAL_WRITE_ALLOWLIST } = require("../server/job-worker");
+  const state = stateFor("CFT-20260717-214541-0883FBF3");
+  const expected = "create_blob, create_branch, create_commit, create_file, create_pull_request, create_tree, update_file, update_pull_request, update_ref";
+  assert.deepEqual(APPROVAL_WRITE_ALLOWLIST,
+    ["create_blob", "create_branch", "create_commit", "create_file", "create_pull_request", "create_tree", "update_file", "update_pull_request", "update_ref"]);
+  const policy = buildAutoReviewPolicy(state);
+  assert.equal(policy.includes(expected), true);
+  assert.equal(policy.includes(state.taskBranch), true);
+  const prompt = buildStartPrompt(state);
+  assert.equal(prompt.includes("COWORK_CODEX_APPROVAL_REREQUEST_V1"), true);
+  assert.equal(prompt.includes("attempt=2/2"), true);
+  assert.equal(prompt.includes(state.id), true);
+});

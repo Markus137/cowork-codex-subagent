@@ -11,7 +11,7 @@ description: >
   not use for general fileless work without a target repository, a short
   follow-up question, installation explanation, status check, confirmation,
   greeting, or a clarification required before safe delegation.
-version: 1.2.9
+version: 1.2.10
 ---
 
 # GitHub-only Codex-First orchestration

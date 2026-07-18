@@ -358,6 +358,17 @@ function sanitizedValidationError(state) {
   };
 }
 
+function sanitizedApprovalDenialDetail(detail, repository, taskBranch) {
+  if (!detail || typeof detail !== "object" || Array.isArray(detail)) return null;
+  const { rationale, tool, target } = detail;
+  if (typeof rationale !== "string" || typeof tool !== "string" ||
+      !target || typeof target !== "object" || Array.isArray(target) ||
+      target.repository !== repository || target.branch !== taskBranch) return null;
+  const sanitizedTarget = { repository, branch: taskBranch };
+  if (typeof target.path === "string") sanitizedTarget.path = target.path;
+  return { rationale, tool, target: sanitizedTarget };
+}
+
 function sanitizedPublicEvidence(state) {
   const value = state.publicEvidence;
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
@@ -374,7 +385,7 @@ function sanitizedPublicEvidence(state) {
     (prNumber === null ? prUrl !== null : prUrl !== `https://github.com/${repository}/pull/${prNumber}`) ||
     !["branch_created", "branch_or_commit_observed", "commit_observed", "pr_created", "audit_artifact_committed_pr_missing", "commit_without_pr", "pr_verified"].includes(value.last_completed_phase)
   ) return null;
-  return {
+  const sanitized = {
     repository,
     base_branch: baseBranch,
     task_branch: taskBranch,
@@ -383,6 +394,9 @@ function sanitizedPublicEvidence(state) {
     pr_url: prUrl,
     last_completed_phase: value.last_completed_phase,
   };
+  const approvalDenialDetail = sanitizedApprovalDenialDetail(value.approval_denial_detail, repository, taskBranch);
+  if (approvalDenialDetail) sanitized.approval_denial_detail = approvalDenialDetail;
+  return sanitized;
 }
 
 function sanitizedLeftoverResources(state) {

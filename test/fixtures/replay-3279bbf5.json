@@ -1,0 +1,19 @@
+{
+  "source_run_id": "CFT-20260717-204250-3279BBF5",
+  "repository": "ExampleOrg/synthetic-implementation",
+  "base_branch": "main",
+  "task_branch": "sol/cft-20260717-204250-3279bbf5",
+  "head_sha": "24356c12910a9bb0f736f5d99324f0467828924c",
+  "denied_tool": "create_commit",
+  "denied_stage": "commit",
+  "branch_created": true,
+  "commit_created": false,
+  "pr_created": false,
+  "ahead": 0,
+  "behind": 0,
+  "runtime_rationale_observed": false,
+  "runtime_rationale": null,
+  "expected_status": "blocked",
+  "expected_code": "GITHUB_WRITE_APPROVAL_DENIED",
+  "expected_phase": "blocked"
+}
