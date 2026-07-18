@@ -229,7 +229,7 @@ function sanitizedDenialRationale(error) {
       containsSuspiciousSecretLiteral(value) ||
       /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(value) ||
       /(?:token|credential|authorization|password|secret)\s*[:=]/i.test(value) ||
-      /(?:^|\s)\/[A-Za-z0-9._-]+\/|[A-Za-z]:\\/.test(value) ||
+      /(?:^|\s)\/[A-Za-z0-9._-]+|[A-Za-z]:\\/.test(value) ||
       /(?:session|thread)[_-]?id\s*[:=]/i.test(value)) return "runtime_emitted_no_rationale";
   return value;
 }
