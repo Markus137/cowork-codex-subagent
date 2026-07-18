@@ -378,13 +378,29 @@ function sanitizedPublicEvidence(state) {
   const headSha = value.head_sha;
   const prNumber = value.pr_number;
   const prUrl = value.pr_url;
-  if (
+  const approvalDenialDetail = sanitizedApprovalDenialDetail(value.approval_denial_detail, repository, taskBranch);
+  const progressValid = !(
     value.repository !== repository || value.base_branch !== baseBranch || value.task_branch !== taskBranch ||
     (headSha !== null && (typeof headSha !== "string" || !/^[0-9a-f]{40}$/.test(headSha))) ||
     (prNumber !== null && (!Number.isSafeInteger(prNumber) || prNumber < 1)) ||
     (prNumber === null ? prUrl !== null : prUrl !== `https://github.com/${repository}/pull/${prNumber}`) ||
     !["branch_created", "branch_or_commit_observed", "commit_observed", "pr_created", "audit_artifact_committed_pr_missing", "commit_without_pr", "pr_verified"].includes(value.last_completed_phase)
-  ) return null;
+  );
+  if (!progressValid) {
+    // No trusted progress evidence. Still surface a validated denial detail (for example a
+    // first-write denial before any branch was observed) as a denial-only shape.
+    if (!approvalDenialDetail) return null;
+    return {
+      repository,
+      base_branch: baseBranch,
+      task_branch: taskBranch,
+      head_sha: null,
+      pr_number: null,
+      pr_url: null,
+      last_completed_phase: null,
+      approval_denial_detail: approvalDenialDetail,
+    };
+  }
   const sanitized = {
     repository,
     base_branch: baseBranch,
@@ -394,7 +410,6 @@ function sanitizedPublicEvidence(state) {
     pr_url: prUrl,
     last_completed_phase: value.last_completed_phase,
   };
-  const approvalDenialDetail = sanitizedApprovalDenialDetail(value.approval_denial_detail, repository, taskBranch);
   if (approvalDenialDetail) sanitized.approval_denial_detail = approvalDenialDetail;
   return sanitized;
 }

@@ -1,0 +1,13 @@
+{
+  "source_run_id": "CFT-20260718-000002-C1A7E5B8",
+  "repository": "ExampleOrg/synthetic-implementation",
+  "base_branch": "main",
+  "task_branch": "sol/cft-20260718-000002-c1a7e5b8",
+  "denied_tool": "create_branch",
+  "denied_stage": "branch",
+  "branch_observed": false,
+  "expected_status": "blocked",
+  "expected_code": "GITHUB_WRITE_APPROVAL_DENIED",
+  "expected_last_completed_phase": null,
+  "expected_denial_rationale": "runtime_emitted_no_rationale"
+}

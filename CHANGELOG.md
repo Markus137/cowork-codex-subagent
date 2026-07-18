@@ -10,6 +10,25 @@ Repository names in the recorded observations below are neutral placeholders
 (`example-org/web-template`, `example-org/example-app`); the observations
 themselves are otherwise unchanged.
 
+## 1.2.11
+
+Closes two edge cases in the 1.2.10 write-denial handling.
+
+- A denied path-scoped write (`create_file`/`update_file`) is now tracked
+  against the signature recorded at its `item.started` event, so a failed
+  `item.completed` that omits `arguments` no longer records an empty-path
+  signature. A denied path reliably reaches `denied_once`, and a third
+  re-request for the same path fails closed.
+- A first-write denial (for example `create_branch` failing approval before any
+  branch is observed) now surfaces the sanitized denial rationale to the caller:
+  `sanitizedPublicEvidence` accepts a denial-only evidence object carrying only
+  `approval_denial_detail`, without inventing repository/branch/head/PR fields,
+  and that shape survives the MCP-facing projection.
+
+Denied approvals still terminate as `blocked`/`incomplete` with the correct
+reason code, timeouts and aborts are still never retried, and no
+`approval_pending` state is invented.
+
 ## 1.2.10
 
 Hardens GitHub write-denial handling and publishes a sanitized

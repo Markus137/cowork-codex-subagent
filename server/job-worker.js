@@ -529,6 +529,7 @@ async function runWorker(jobId, options = {}) {
   let violationValidationError = null;
   let observedApprovalFailure = null;
   const approvalRetryTracker = createApprovalRetryTracker();
+  const startedWriteSignatures = new Map();
   const publishProgress = createProgressPublisher(jobId, state, observations, {
     environment,
     mutateJobImpl: options.mutateJobImpl,
@@ -616,6 +617,9 @@ async function runWorker(jobId, options = {}) {
           stopChild();
           break;
         }
+        // Remember the exact started signature so a later failed/completed event that omits
+        // arguments is correlated to the same write instead of a recomputed empty-path signature.
+        startedWriteSignatures.set(startedTool, signature);
       }
       const blocked = policyViolation(event);
       if (blocked) {
@@ -657,19 +661,21 @@ async function runWorker(jobId, options = {}) {
       const approvalFailure = approvalFailureObservation(event, state);
       if (approvalFailure) {
         observedApprovalFailure = approvalFailure.code;
+        const failedTool = normalizedApprovalTool(event);
+        const signature = (failedTool && startedWriteSignatures.get(failedTool)) || approvalFailure.signature;
         if (approvalFailure.code === "GITHUB_WRITE_APPROVAL_DENIED") {
           observations.approvalDenialDetail = approvalFailure.detail;
-          approvalRetryTracker.denied(approvalFailure.signature);
+          approvalRetryTracker.denied(signature);
         } else {
           // Timeouts and aborts are never retried; block any further attempt on this write.
-          approvalRetryTracker.terminated(approvalFailure.signature);
+          approvalRetryTracker.terminated(signature);
         }
       } else if (event?.type === "item.completed" && event.item?.type === "mcp_tool_call" && event.item?.status === "completed") {
         const tool = normalizedApprovalTool(event);
         if (tool && APPROVAL_WRITE_ALLOWLIST.includes(tool)) {
           const args = event.item.arguments && typeof event.item.arguments === "object" ? event.item.arguments : {};
-          const safePath = sanitizedTargetPath(args.path);
-          const signature = `${tool}|${state.contract.repository}|${state.taskBranch}|${safePath || ""}`;
+          const recomputed = `${tool}|${state.contract.repository}|${state.taskBranch}|${sanitizedTargetPath(args.path) || ""}`;
+          const signature = startedWriteSignatures.get(tool) || recomputed;
           if (approvalRetryTracker.succeeded(signature)) {
             observedApprovalFailure = null;
             observations.approvalDenialDetail = null;

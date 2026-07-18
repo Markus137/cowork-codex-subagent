@@ -2464,3 +2464,59 @@ test("a timed-out or aborted write is never retried and fails closed", async () 
     assert.equal(report.code, code);
   }
 }));
+
+test("a denied path-scoped write with argument-less completions still fails closed on the third attempt", async () => withJobs(async (environment) => {
+  const replay = JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures", "replay-6b2d9f04.json"), "utf8"));
+  const base = stateFor(replay.source_run_id);
+  const state = stateFor(replay.source_run_id, {
+    contract: { ...base.contract, repository: replay.repository, baseBranch: replay.base_branch },
+    taskBranch: replay.task_branch,
+  });
+  writeJob(state, { environment });
+  const startArgs = {
+    repository_full_name: replay.repository, branch: replay.task_branch, path: replay.denied_path,
+    message: implementationMessage(replay.source_run_id), content: "x",
+  };
+  const start = { type: "item.started", item: { type: "mcp_tool_call", server: "codex_apps", tool: `github.${replay.denied_tool}`, arguments: startArgs } };
+  // The failed completion omits arguments, a shape the runtime already emits.
+  const denyNoArgs = { type: "item.completed", item: { type: "mcp_tool_call", server: "codex_apps", tool: `github.${replay.denied_tool}`, status: "failed", error: { message: "automatic approval denied this request" } } };
+  const events = [
+    { type: "thread.started", thread_id: THREAD_ID },
+    start, denyNoArgs, // first denial
+    start, denyNoArgs, // one bounded retry, second denial
+    start,             // third attempt must fail closed here, before the event below
+    // Without correlating the denial to the started signature, the third start would be allowed and
+    // this non-GitHub started event would surface a different terminal code.
+    { type: "item.started", item: { type: "mcp_tool_call", server: "imessage", tool: "send" } },
+  ];
+  await runWorker(replay.source_run_id, terminalWorkerOptions(environment, events));
+  const report = resultJob(replay.source_run_id, { environment });
+  assert.equal(report.status, replay.expected_status);
+  assert.equal(report.code, replay.expected_code);
+}));
+
+test("a first-write denial surfaces the sanitized detail without any observed progress", async () => withJobs(async (environment) => {
+  const replay = JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures", "replay-c1a7e5b8.json"), "utf8"));
+  const base = stateFor(replay.source_run_id);
+  const state = stateFor(replay.source_run_id, {
+    contract: { ...base.contract, repository: replay.repository, baseBranch: replay.base_branch },
+    taskBranch: replay.task_branch,
+  });
+  writeJob(state, { environment });
+  const args = { repository_full_name: replay.repository, branch_name: replay.task_branch, base_ref: replay.base_branch };
+  const events = [
+    { type: "thread.started", thread_id: THREAD_ID },
+    { type: "item.started", item: { type: "mcp_tool_call", server: "codex_apps", tool: `github.${replay.denied_tool}`, arguments: args } },
+    { type: "item.completed", item: { type: "mcp_tool_call", server: "codex_apps", tool: `github.${replay.denied_tool}`, status: "failed", arguments: args, error: { message: "automatic approval denied this request" } } },
+  ];
+  await runWorker(replay.source_run_id, terminalWorkerOptions(environment, events));
+  const report = resultJob(replay.source_run_id, { environment });
+  assert.equal(report.status, replay.expected_status);
+  assert.equal(report.code, replay.expected_code);
+  assert.notEqual(report.partial_evidence, null);
+  assert.equal(report.partial_evidence.last_completed_phase, replay.expected_last_completed_phase);
+  const expectedDetail = { rationale: replay.expected_denial_rationale, tool: replay.denied_tool, target: { repository: replay.repository, branch: replay.task_branch } };
+  assert.deepEqual(report.partial_evidence.approval_denial_detail, expectedDetail);
+  // The denial-only evidence must also survive the MCP-facing projection.
+  assert.deepEqual(formatJobResult(report).structuredContent.partial_evidence.approval_denial_detail, expectedDetail);
+}));

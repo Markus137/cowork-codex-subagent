@@ -304,9 +304,15 @@ function projectPartialEvidence(value) {
   const prUrl = prNumber === null ? value.pr_url === null ? null : undefined
     : typeof value.pr_url === "string" && value.pr_url === `https://github.com/${repository}/pull/${prNumber}` ? value.pr_url : undefined;
   const phases = new Set(["branch_created", "branch_or_commit_observed", "commit_observed", "pr_created", "audit_artifact_committed_pr_missing", "commit_without_pr", "pr_verified"]);
-  if (!repository || !baseBranch || !taskBranch || headSha === undefined || prNumber === undefined || prUrl === undefined || !phases.has(value.last_completed_phase)) return null;
-  const projected = { repository, base_branch: baseBranch, task_branch: taskBranch, head_sha: headSha, pr_number: prNumber, pr_url: prUrl, last_completed_phase: value.last_completed_phase };
+  if (!repository || !baseBranch || !taskBranch) return null;
   const approvalDenialDetail = projectApprovalDenialDetail(value.approval_denial_detail, repository, taskBranch);
+  // Denial-only shape: no trusted progress evidence, but a validated denial detail is present
+  // (for example a first-write denial before any branch was observed).
+  if (value.last_completed_phase === null && value.head_sha === null && value.pr_number === null && value.pr_url === null && approvalDenialDetail) {
+    return { repository, base_branch: baseBranch, task_branch: taskBranch, head_sha: null, pr_number: null, pr_url: null, last_completed_phase: null, approval_denial_detail: approvalDenialDetail };
+  }
+  if (headSha === undefined || prNumber === undefined || prUrl === undefined || !phases.has(value.last_completed_phase)) return null;
+  const projected = { repository, base_branch: baseBranch, task_branch: taskBranch, head_sha: headSha, pr_number: prNumber, pr_url: prUrl, last_completed_phase: value.last_completed_phase };
   if (approvalDenialDetail) projected.approval_denial_detail = approvalDenialDetail;
   return projected;
 }

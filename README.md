@@ -3,7 +3,7 @@
 A Cowork/Claude Code plugin that lets Claude hand a repository task to OpenAI
 Codex and drive it to a finished, non-draft GitHub pull request — safely,
 without ever cloning the repo, running local Git, or exposing an API key.
-(Version 1.2.10.)
+(Version 1.2.11.)
 
 Everything happens through GitHub as the shared mailbox: Claude (in the "Fable"
 intake role) starts one bounded Codex run, polls GitHub for the branch, commit,
@@ -31,7 +31,7 @@ Codex over GitHub. The official path is unavailable; this one is not.
   incomplete instead of guessing.
 - **Deterministic evidence.** Certification comes from validated GitHub
   metadata — never from reassuring prose in a review comment.
-- **Fast, offline test suite.** 154 tests run in about a second with no
+- **Fast, offline test suite.** 156 tests run in about a second with no
   network, no GitHub, and no Codex (see [Contributing](CONTRIBUTING.md)).
 
 ## Requirements

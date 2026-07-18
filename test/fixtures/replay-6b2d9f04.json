@@ -1,0 +1,11 @@
+{
+  "source_run_id": "CFT-20260718-000001-6B2D9F04",
+  "repository": "ExampleOrg/synthetic-implementation",
+  "base_branch": "main",
+  "task_branch": "sol/cft-20260718-000001-6b2d9f04",
+  "denied_tool": "create_file",
+  "denied_path": "src/a.js",
+  "completion_omits_arguments": true,
+  "expected_status": "blocked",
+  "expected_code": "GITHUB_WRITE_APPROVAL_DENIED"
+}
