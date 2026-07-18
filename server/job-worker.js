@@ -273,7 +273,7 @@ function createApprovalRetryTracker() {
     started(signature) {
       const current = states.get(signature);
       if (current === "denied_once") { states.set(signature, "retry_started"); return true; }
-      if (current === "retry_started" || current === "denied_twice") return false;
+      if (current === "retry_started" || current === "denied_twice" || current === "terminated") return false;
       states.set(signature, "started");
       return true;
     },
@@ -281,8 +281,14 @@ function createApprovalRetryTracker() {
       const current = states.get(signature);
       states.set(signature, current === "retry_started" ? "denied_twice" : "denied_once");
     },
+    // Timeouts and aborts are never retried: the write fails closed on any further attempt.
+    terminated(signature) {
+      states.set(signature, "terminated");
+    },
     succeeded(signature) {
-      const recovered = states.get(signature) === "retry_started";
+      const current = states.get(signature);
+      if (current === "terminated") return false;
+      const recovered = current === "retry_started";
       states.set(signature, "recovered");
       return recovered;
     },
@@ -603,7 +609,10 @@ async function runWorker(jobId, options = {}) {
         const safePath = sanitizedTargetPath(args.path);
         const signature = `${startedTool}|${state.contract.repository}|${state.taskBranch}|${safePath || ""}`;
         if (!approvalRetryTracker.started(signature)) {
-          violation = "GITHUB_WRITE_APPROVAL_DENIED";
+          // A non-retryable re-request (a third denial, or any retry after a timeout/abort).
+          // Stop without a fresh violation so the already-observed approval-failure code drives
+          // the terminal status (timeout -> incomplete; denial/abort -> blocked).
+          observedApprovalFailure = observedApprovalFailure || "GITHUB_WRITE_APPROVAL_DENIED";
           stopChild();
           break;
         }
@@ -651,6 +660,9 @@ async function runWorker(jobId, options = {}) {
         if (approvalFailure.code === "GITHUB_WRITE_APPROVAL_DENIED") {
           observations.approvalDenialDetail = approvalFailure.detail;
           approvalRetryTracker.denied(approvalFailure.signature);
+        } else {
+          // Timeouts and aborts are never retried; block any further attempt on this write.
+          approvalRetryTracker.terminated(approvalFailure.signature);
         }
       } else if (event?.type === "item.completed" && event.item?.type === "mcp_tool_call" && event.item?.status === "completed") {
         const tool = normalizedApprovalTool(event);

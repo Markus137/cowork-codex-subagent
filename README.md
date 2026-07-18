@@ -31,7 +31,7 @@ Codex over GitHub. The official path is unavailable; this one is not.
   incomplete instead of guessing.
 - **Deterministic evidence.** Certification comes from validated GitHub
   metadata — never from reassuring prose in a review comment.
-- **Fast, offline test suite.** 153 tests run in about a second with no
+- **Fast, offline test suite.** 154 tests run in about a second with no
   network, no GitHub, and no Codex (see [Contributing](CONTRIBUTING.md)).
 
 ## Requirements

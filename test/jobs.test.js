@@ -2438,3 +2438,29 @@ test("an approved-but-invalid mutation is blocked at item.started before it can 
   assert.equal(report.code, "IMPLEMENTATION_COMMIT_MESSAGE_INVALID");
   assert.equal(report.partial_evidence.last_completed_phase, "branch_created");
 }));
+
+test("a timed-out or aborted write is never retried and fails closed", async () => withJobs(async (environment) => {
+  for (const [suffix, message, code, status] of [
+    ["11112222", "approval timed out", "GITHUB_WRITE_APPROVAL_TIMEOUT", "incomplete"],
+    ["33334444", "user cancelled MCP tool call", "GITHUB_WRITE_APPROVAL_ABORTED", "blocked"],
+  ]) {
+    const id = `CFT-20260717-214541-${suffix}`;
+    writeJob(stateFor(id), { environment });
+    const branch = taskBranchFor(id);
+    const args = { repository_full_name: CONTRACT.repository, branch_name: branch, base_ref: CONTRACT.base_branch };
+    const startEvent = { type: "item.started", item: { type: "mcp_tool_call", server: "codex_apps", tool: "github.create_branch", arguments: args } };
+    const failEvent = { type: "item.completed", item: { type: "mcp_tool_call", server: "codex_apps", tool: "github.create_branch", status: "failed", arguments: args, error: { message } } };
+    const events = [
+      { type: "thread.started", thread_id: THREAD_ID },
+      startEvent,
+      failEvent,
+      // The child re-requests the same write after a timeout/abort; it must never be retried.
+      startEvent,
+      completedGithubEvent("create_branch", CONTRACT.repository, { branch_name: branch, base_ref: CONTRACT.base_branch }, { branch }),
+    ];
+    await runWorker(id, terminalWorkerOptions(environment, events));
+    const report = resultJob(id, { environment });
+    assert.equal(report.status, status);
+    assert.equal(report.code, code);
+  }
+}));
