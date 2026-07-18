@@ -553,6 +553,159 @@ test("validated implementation seed permits a no-op resume while invalid seeds f
   ]) assert.equal(createObservationCollector({ ...context, implementationCommit: invalid }).latestImplementationCommit, null);
 });
 
+const shapeFixture = JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures", "replay-commit-shapes.json"), "utf8"));
+
+function shapeContext(overrides = {}) {
+  return {
+    runId: shapeFixture.source_run_id,
+    repository: shapeFixture.repository,
+    baseBranch: shapeFixture.base_branch,
+    taskBranch: shapeFixture.task_branch,
+    auditPath: null,
+    taskType: "implementation",
+    ...overrides,
+  };
+}
+
+function shapeMessage(overrides = {}) {
+  return implementationCommitMessage({
+    runId: shapeFixture.source_run_id,
+    subject: "Fix the scoped repository behavior",
+    problem: "The requested behavior needed a concrete correction.",
+    change: "The accepted Terra V2 change updates the scoped implementation.",
+    rationale: "The bounded change directly addresses the established problem.",
+    verification: "The exact remote result and requested source scope were checked.",
+    ...overrides,
+  });
+}
+
+// Build a completed MCP call carrying structured_content, a text content block, or both, mirroring
+// the real result envelope (the shared `completed` helper only models structured_content).
+function completedShape(tool, args, shape) {
+  const result = { isError: false };
+  if (shape.structured) result.structuredContent = shape.structured;
+  if (typeof shape.text === "string") result.content = [{ type: "text", text: shape.text }];
+  return {
+    type: "item.completed",
+    item: { type: "mcp_tool_call", server: "codex_apps", tool: `github.${tool}`, status: "completed", error: null, arguments: args, result },
+  };
+}
+
+test("create_commit registers the explained commit across every real MCP result shape", () => {
+  const state = { contract: { taskType: "implementation" } };
+  const message = shapeMessage();
+  const commitArgs = { repository_full_name: shapeFixture.repository, message, tree: "1".repeat(40), parents: ["2".repeat(40)] };
+  const refArgs = { repository_full_name: shapeFixture.repository, branch_name: shapeFixture.task_branch, sha: shapeFixture.commit_sha, force: false };
+  assert.ok(shapeFixture.create_commit_shapes.length >= 5);
+  for (const shape of shapeFixture.create_commit_shapes) {
+    const collector = createObservationCollector(shapeContext());
+    observeGithubEvent(collector, completedShape("create_commit", commitArgs, shape));
+    assert.equal(collector.implementationCommitViolation, false, `${shape.label}: no false violation`);
+    assert.ok(
+      collector.pendingImplementationCommits.some((item) => item.sha === shapeFixture.commit_sha),
+      `${shape.label}: commit registered in the pending ledger`,
+    );
+    // The exact-body commit is now bindable: update_ref is accepted, not terminally blocked.
+    assert.deepEqual(
+      validateImplementationCommitBeforeMutation(collector, state, started("update_ref", refArgs)),
+      { ok: true },
+      `${shape.label}: update_ref accepted`,
+    );
+    observeGithubEvent(collector, completedShape("update_ref", refArgs, { structured: { result: {} } }));
+    assert.equal(collector.latestImplementationCommit?.sha, shapeFixture.commit_sha, `${shape.label}: branch-effective`);
+  }
+});
+
+test("create_file and update_ref bind the explained commit across every real MCP result shape", () => {
+  const message = shapeMessage();
+  const fileArgs = { repository_full_name: shapeFixture.repository, branch: shapeFixture.task_branch, path: "src/scoped.js", message, content: "bounded" };
+  for (const shape of shapeFixture.create_file_shapes) {
+    const collector = createObservationCollector(shapeContext());
+    observeGithubEvent(collector, completedShape("create_file", fileArgs, shape));
+    assert.equal(collector.commitObserved, true, `${shape.label}: commit observed`);
+    assert.equal(collector.latestImplementationCommit?.sha, shapeFixture.commit_sha, `${shape.label}: branch-effective`);
+  }
+  const commitArgs = { repository_full_name: shapeFixture.repository, message, tree: "1".repeat(40), parents: ["2".repeat(40)] };
+  const refArgs = { repository_full_name: shapeFixture.repository, branch_name: shapeFixture.task_branch, sha: shapeFixture.commit_sha, force: false };
+  for (const shape of shapeFixture.update_ref_shapes) {
+    const collector = createObservationCollector(shapeContext());
+    observeGithubEvent(collector, completedShape("create_commit", commitArgs, { structured: { result: { sha: shapeFixture.commit_sha } } }));
+    observeGithubEvent(collector, completedShape("update_ref", refArgs, shape));
+    assert.equal(collector.latestImplementationCommit?.sha, shapeFixture.commit_sha, `${shape.label}: ref binds explained commit`);
+    assert.equal(collector.implementationCommitViolation, false, `${shape.label}: no violation`);
+  }
+});
+
+test("ambiguous or absent commit SHAs never register or falsely bind", () => {
+  const message = shapeMessage();
+  const commitArgs = { repository_full_name: shapeFixture.repository, message, tree: "1".repeat(40), parents: ["2".repeat(40)] };
+  // Two different SHAs at known commit paths are ambiguous and must not register.
+  const ambiguous = createObservationCollector(shapeContext());
+  observeGithubEvent(ambiguous, completedShape("create_commit", commitArgs, {
+    structured: { sha: shapeFixture.commit_sha, object: { sha: shapeFixture.second_sha } },
+  }));
+  assert.equal(ambiguous.pendingImplementationCommits.length, 0);
+  assert.equal(ambiguous.implementationCommitViolation, true);
+  // Text with two distinct SHAs is not uniquely extractable.
+  const ambiguousText = createObservationCollector(shapeContext());
+  observeGithubEvent(ambiguousText, completedShape("create_commit", commitArgs, {
+    text: `Created ${shapeFixture.commit_sha}, replacing ${shapeFixture.second_sha}.`,
+  }));
+  assert.equal(ambiguousText.pendingImplementationCommits.length, 0);
+});
+
+test("corrigible commit-guard deviations name the rule and expected correction, terminal ones do not", () => {
+  const state = { contract: { taskType: "implementation" } };
+  const message = shapeMessage();
+  const fileArgs = { repository_full_name: shapeFixture.repository, branch: shapeFixture.task_branch, path: "src/scoped.js", message, content: "v1" };
+
+  // Reused explanation on a second commit is corrigible: it names the rule and the expected fresh
+  // body, and offers exactly one correction.
+  const collector = createObservationCollector(shapeContext());
+  observeGithubEvent(collector, completedShape("create_file", fileArgs, { structured: { commit_sha: shapeFixture.commit_sha } }));
+  const reuse = validateImplementationCommitBeforeMutation(collector, state, started("update_file", fileArgs));
+  assert.equal(reuse.ok, false);
+  assert.equal(reuse.code, "IMPLEMENTATION_COMMIT_MESSAGE_INVALID");
+  assert.equal(reuse.rule, "new_commit_requires_fresh_explanation");
+  assert.equal(reuse.correctable, true);
+  assert.equal(reuse.correction.rule, "new_commit_requires_fresh_explanation");
+  assert.ok(typeof reuse.correction.expected_action === "string" && reuse.correction.expected_action.length > 0);
+  assert.equal(reuse.expected, reuse.correction.expected_action);
+
+  // A well-formed update_ref to a not-yet-observed commit is the corrigible ledger-timing case.
+  const timing = createObservationCollector(shapeContext());
+  const refArgs = { repository_full_name: shapeFixture.repository, branch_name: shapeFixture.task_branch, sha: shapeFixture.commit_sha, force: false };
+  const unobserved = validateImplementationCommitBeforeMutation(timing, state, started("update_ref", refArgs));
+  assert.equal(unobserved.ok, false);
+  assert.equal(unobserved.rule, "update_ref_requires_observed_explained_commit");
+  assert.equal(unobserved.correctable, true);
+
+  // The one correction is spent: a repeat after the correction resume is terminal (not correctable).
+  const spent = createObservationCollector(shapeContext({ implementationCorrectionUsed: true }));
+  const spentReuse = validateImplementationCommitBeforeMutation(spent, state, started("update_ref", refArgs));
+  assert.equal(spentReuse.ok, false);
+  assert.equal(spentReuse.correctable, false);
+
+  // Security violations stay hard-terminal and are never advertised as correctable.
+  for (const [label, args] of [
+    ["force push", { ...refArgs, force: true }],
+    ["foreign branch", { ...refArgs, branch_name: "main" }],
+    ["foreign repository", { ...refArgs, repository_full_name: "OtherOrg/other" }],
+  ]) {
+    const guard = validateImplementationCommitBeforeMutation(createObservationCollector(shapeContext()), state, started("update_ref", args));
+    assert.equal(guard.ok, false, `${label}: rejected`);
+    assert.notEqual(guard.correctable, true, `${label}: not correctable`);
+  }
+  // An unexplained commit body stays terminal on create_file/create_commit too.
+  const unexplained = validateImplementationCommitBeforeMutation(
+    createObservationCollector(shapeContext()), state,
+    started("create_file", { ...fileArgs, message: "not a valid marker message" }),
+  );
+  assert.equal(unexplained.ok, false);
+  assert.equal(unexplained.rule, "exact_bounded_run_commit_body_required");
+  assert.notEqual(unexplained.correctable, true);
+});
+
 test("final PR body is byte-exact and body updates are blocked before mutation", () => {
   const { envelope } = stateAndEnvelope();
   const context = { ...collectorContext(), auditPath: null, taskType: "implementation" };

@@ -62,15 +62,65 @@ function toolName(item) {
   return tool;
 }
 
+function textContentFrom(result) {
+  const parts = Array.isArray(result?.content) ? result.content : [];
+  const texts = parts
+    .filter((part) => plainObject(part) && part.type === "text" && typeof part.text === "string")
+    .map((part) => part.text);
+  return texts.length ? texts.join("\n") : null;
+}
+
 function completedGithubCall(event) {
   const item = event?.type === "item.completed" ? event.item : null;
   if (!plainObject(item) || item.type !== "mcp_tool_call" || item.status !== "completed" || item.error) return null;
   const tool = toolName(item);
   if (!tool || !plainObject(item.arguments) || !plainObject(item.result)) return null;
   if (item.result.isError === true || item.result.is_error === true) return null;
-  const structured = item.result.structured_content || item.result.structuredContent;
-  if (!plainObject(structured)) return null;
-  return { tool, args: item.arguments, structured };
+  const structuredRaw = item.result.structured_content || item.result.structuredContent;
+  const structured = plainObject(structuredRaw) ? structuredRaw : null;
+  const textContent = textContentFrom(item.result);
+  // Real Codex GitHub MCP results carry either structured_content or a text content block (or
+  // both). A call with neither carries no observable evidence and is ignored.
+  if (!structured && textContent === null) return null;
+  return { tool, args: item.arguments, structured: structured || {}, textContent };
+}
+
+// Commit SHAs surface at different structured paths across GitHub MCP result shapes (a raw git
+// commit, a contents write, or a ref update). Collect every 40-hex value at a known commit path and
+// accept it only when the shapes agree; conflicting shapes are ambiguous and rejected.
+const COMMIT_SHA_PATHS = [
+  ["result", "sha"], ["sha"],
+  ["result", "commit", "sha"], ["commit", "sha"],
+  ["result", "object", "sha"], ["object", "sha"],
+  ["commit_sha"], ["result", "commit_sha"],
+];
+
+function shaAtPath(root, path) {
+  let node = root;
+  for (const key of path) {
+    if (!plainObject(node)) return null;
+    node = node[key];
+  }
+  return normalizedSha(node);
+}
+
+function uniqueTextSha(textContent) {
+  if (typeof textContent !== "string") return null;
+  const matches = textContent.match(/[0-9a-f]{40}/gi);
+  if (!matches) return null;
+  const unique = new Set(matches.map((value) => value.toLowerCase()));
+  return unique.size === 1 ? [...unique][0] : null;
+}
+
+function extractCommitSha(structured, textContent) {
+  const candidates = new Set();
+  for (const path of COMMIT_SHA_PATHS) {
+    const sha = shaAtPath(structured, path);
+    if (sha) candidates.add(sha);
+  }
+  if (candidates.size === 1) return [...candidates][0];
+  if (candidates.size > 1) return null;
+  return uniqueTextSha(textContent);
 }
 
 function startedGithubCall(event) {
@@ -232,6 +282,9 @@ function createObservationCollector(context) {
     pendingCertification,
     pendingMarkerViolation: false,
     implementationCommitViolation: false,
+    // One machine correction is offered per run for a corrigible commit-guard deviation; a prior
+    // consumed correction is seeded across the correction resume so a repeat is terminal.
+    implementationCorrectionUsed: context.implementationCorrectionUsed === true,
     latestImplementationCommit: validSeedImplementationCommit(context.implementationCommit, collectorContext),
     pendingImplementationCommits: [],
     fetches: [],
@@ -249,6 +302,15 @@ function validateImplementationCommitBeforeMutation(collector, state, event) {
     path: "implementation_commit_message",
     rule,
     expected: EXPECTED.HOST_EVIDENCE,
+  });
+  // A corrigible deviation names the rule and the exact expected correction instead of a silent
+  // terminal block. The correctable flag is true only while the one per-run correction is unspent,
+  // so a repeat of the same deviation after a correction resume is terminal.
+  const correctable = (rule, expected) => ({
+    ...invalid(rule),
+    expected,
+    correctable: !collector.implementationCorrectionUsed,
+    correction: { rule, expected_action: expected },
   });
   if (call.tool === "add_comment_to_issue") return invalid("context_comment_not_authorized");
   if (call.tool === "update_pull_request" && Object.prototype.hasOwnProperty.call(call.args, "body")) {
@@ -273,17 +335,22 @@ function validateImplementationCommitBeforeMutation(collector, state, event) {
     if (
       collector.latestImplementationCommit?.message === call.args.message ||
       collector.pendingImplementationCommits.some((item) => item.message === call.args.message)
-    ) return invalid("new_commit_requires_fresh_explanation");
+    ) return correctable("new_commit_requires_fresh_explanation", EXPECTED.FRESH_COMMIT_EXPLANATION);
     return { ok: true };
   }
   if (call.tool === "update_ref") {
     const sha = normalizedSha(call.args.sha);
-    if (
-      repositoryFrom(call.args) !== collector.context.repository || call.args.force !== false ||
-      exactValue(call.args, ["branch_name"]) !== collector.context.taskBranch ||
-      !sha || !collector.pendingImplementationCommits.some((item) => item.sha === sha)
-    ) return invalid("update_ref_requires_observed_explained_commit");
-    return { ok: true };
+    const structurallyValid =
+      repositoryFrom(call.args) === collector.context.repository && call.args.force === false &&
+      exactValue(call.args, ["branch_name"]) === collector.context.taskBranch && Boolean(sha);
+    const observed = Boolean(sha) && collector.pendingImplementationCommits.some((item) => item.sha === sha);
+    if (structurallyValid && observed) return { ok: true };
+    // A force push, a foreign repository or branch, or a missing SHA is an out-of-scope or
+    // unexplained write and stays terminal. A well-formed ref to a not-yet-observed explained
+    // commit is the one corrigible case (the commit landed under an unread result shape, or the
+    // SHAs were transposed) and earns one machine correction.
+    if (structurallyValid) return correctable("update_ref_requires_observed_explained_commit", EXPECTED.OBSERVED_EXPLAINED_COMMIT);
+    return invalid("update_ref_requires_observed_explained_commit");
   }
   if (call.tool === "create_pull_request") {
     const latest = collector?.latestImplementationCommit;
@@ -379,7 +446,7 @@ function observeGithubEvent(collector, event) {
   if (call.tool === "create_file" || call.tool === "update_file") {
     const branch = exactValue(call.args, ["branch", "branch_name"]);
     const filePath = normalizedString(call.args.path);
-    const commitSha = normalizedSha(call.structured.commit_sha);
+    const commitSha = extractCommitSha(call.structured, call.textContent);
     if (branch === taskBranch && commitSha) {
       collector.branchCreated = true;
       collector.commitObserved = true;
@@ -401,8 +468,7 @@ function observeGithubEvent(collector, event) {
   }
 
   if (call.tool === "create_commit" && collector.context.taskType === "implementation") {
-    const result = plainObject(call.structured.result) ? call.structured.result : null;
-    const commitSha = normalizedSha(result?.sha);
+    const commitSha = extractCommitSha(call.structured, call.textContent);
     const message = call.args.message;
     if (!commitSha || acceptedImplementationCommitMessage(message, runId) !== message) {
       collector.implementationCommitViolation = true;

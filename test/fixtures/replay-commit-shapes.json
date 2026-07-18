@@ -1,0 +1,30 @@
+{
+  "note": "Sanitized replay of the real Codex GitHub MCP result envelope. The commit SHA for create_commit / create_file surfaces under several equivalent structured paths across MCP builds, and update_ref echoes the ref/object under equivalent shapes. Some calls carry only a text content block and no structured_content. All identifiers are synthetic; no real host paths or secrets are included. Reproduces CFT-20260718-150029-9E85EBCA and CFT-20260718-151200-33D39EAF (0-commit branches from a registered-but-never-referenced dangling commit) and CFT-20260717-214541-0883FBF3 (fresh-explanation reuse).",
+  "source_run_id": "CFT-20260718-151200-33D39EAF",
+  "repository": "example-org/web-template",
+  "base_branch": "main",
+  "task_branch": "sol/cft-20260718-151200-33d39eaf",
+  "commit_sha": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
+  "second_sha": "b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3",
+  "blob_sha": "cc00cc00cc00cc00cc00cc00cc00cc00cc00cc00",
+  "create_commit_shapes": [
+    { "label": "result.sha", "structured": { "result": { "sha": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2" } } },
+    { "label": "top-level sha", "structured": { "sha": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2" } },
+    { "label": "result.commit.sha", "structured": { "result": { "commit": { "sha": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2", "message": "sanitized" } } } },
+    { "label": "result.object.sha", "structured": { "result": { "object": { "sha": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2", "type": "commit" } } } },
+    { "label": "top-level commit.sha", "structured": { "commit": { "sha": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2" } } },
+    { "label": "text-content only", "text": "Created commit a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2 on refs/heads/sol/cft-20260718-151200-33d39eaf." }
+  ],
+  "create_file_shapes": [
+    { "label": "commit_sha", "structured": { "commit_sha": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2" } },
+    { "label": "nested commit.sha with blob", "structured": { "content": { "path": "src/scoped.js", "sha": "cc00cc00cc00cc00cc00cc00cc00cc00cc00cc00" }, "commit": { "sha": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2" } } },
+    { "label": "result.commit.sha", "structured": { "result": { "commit": { "sha": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2" } } } },
+    { "label": "text-content only", "text": "Committed a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2 to src/scoped.js." }
+  ],
+  "update_ref_shapes": [
+    { "label": "empty result object", "structured": { "result": {} } },
+    { "label": "rich result ref+object", "structured": { "result": { "ref": "refs/heads/sol/cft-20260718-151200-33d39eaf", "object": { "sha": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2", "type": "commit" } } } },
+    { "label": "top-level ref+object", "structured": { "ref": "refs/heads/sol/cft-20260718-151200-33d39eaf", "object": { "sha": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2" } } },
+    { "label": "text-content only", "text": "Updated refs/heads/sol/cft-20260718-151200-33d39eaf to a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2." }
+  ]
+}
