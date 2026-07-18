@@ -26,6 +26,7 @@ const {
   writeJob,
 } = require("../server/jobs");
 const {
+  approvalGateEnabled,
   buildCodexArgs,
   buildAutoReviewPolicy,
   buildResumePrompt,
@@ -532,9 +533,14 @@ test("prompt and CLI arguments enforce one-way GitHub-only transport", () => {
   assert.equal(args.includes("--strict-config"), true);
   assert.equal(args.includes("--ignore-user-config"), true);
   assert.equal(args.includes('approval_policy="on-request"'), true);
-  assert.equal(args.includes('approvals_reviewer="auto_review"'), true);
-  assert.equal(args.includes('apps.github.default_tools_approval_mode="writes"'), true);
-  assert.equal(args.some((item) => String(item).startsWith("auto_review.policy=")), true);
+  // The LLM approval gate is removed by default: no approvals_reviewer, no auto_review.policy,
+  // and the GitHub app's write tools auto-approve instead of routing writes through a reviewer.
+  assert.equal(args.some((item) => String(item).includes('approvals_reviewer="auto_review"')), false);
+  assert.equal(args.includes('apps.github.default_tools_approval_mode="approve"'), true);
+  assert.equal(args.includes('apps.github.default_tools_approval_mode="writes"'), false);
+  assert.equal(args.some((item) => String(item).startsWith("auto_review.policy=")), false);
+  // Non-GitHub app writes are still not auto-approved (read-only base for everything else).
+  assert.equal(args.includes('apps._default.default_tools_approval_mode="writes"'), true);
   assert.equal(args.some((item) => String(item).includes("open_world_enabled")), false);
   assert.equal(args.some((item) => String(item).includes("destructive_enabled")), false);
   assert.equal(args.includes("--dangerously-bypass-approvals-and-sandbox"), false);
@@ -555,7 +561,9 @@ test("prompt and CLI arguments enforce one-way GitHub-only transport", () => {
   for (const denied of ["merge", "delete", "force-update", "workflow", "secret", "credential", "collaborator", "permission", "webhook"]) {
     assert.match(prompt, new RegExp(denied));
   }
-  assert.match(prompt, /automatic approval reviewer is a Codex runtime safety control only/);
+  assert.match(prompt, /no automatic approval reviewer for your GitHub writes by default/);
+  assert.match(prompt, /run without approval interception/);
+  assert.match(prompt, /If the optional approval reviewer is reactivated, it is a Codex runtime safety control only/);
   assert.match(prompt, /not Fable, SOL, Terra, a productive subagent, or a manager cycle/);
   assert.match(prompt, /latest successful commit already made/);
   assert.match(prompt, /before calling create_pull_request/);
@@ -573,6 +581,30 @@ test("prompt and CLI arguments enforce one-way GitHub-only transport", () => {
   assert.doesNotMatch(prompt, /returned for the created PR/);
   assert.doesNotMatch(prompt, /status must be complete, blocked, incomplete, or approval_pending/);
   assert.match(prompt, /genuinely active reviewer request leaves the host job running/);
+});
+
+test("COWORK_CODEX_APPROVAL_GATE reactivates the legacy LLM approval gate without danger-full-access", () => {
+  const id = "CFT-20260715-112233-44445555";
+  const state = stateFor(id);
+  // Default (flag unset): no LLM approval gate, GitHub writes auto-approve.
+  assert.equal(approvalGateEnabled({}), false);
+  const off = buildCodexArgs(state, "/private/jobs/workspace", {});
+  assert.equal(off.includes('apps.github.default_tools_approval_mode="approve"'), true);
+  assert.equal(off.some((item) => String(item).includes('approvals_reviewer="auto_review"')), false);
+  assert.equal(off.some((item) => String(item).startsWith("auto_review.policy=")), false);
+  // Flag on: legacy gate restored, but still never danger-full-access or approval bypass.
+  for (const truthy of ["1", "true", "on"]) assert.equal(approvalGateEnabled({ COWORK_CODEX_APPROVAL_GATE: truthy }), true);
+  assert.equal(approvalGateEnabled({ COWORK_CODEX_APPROVAL_GATE: "0" }), false);
+  const on = buildCodexArgs(state, "/private/jobs/workspace", { COWORK_CODEX_APPROVAL_GATE: "1" });
+  assert.equal(on.includes('approvals_reviewer="auto_review"'), true);
+  assert.equal(on.includes('apps.github.approvals_reviewer="auto_review"'), true);
+  assert.equal(on.includes('apps.github.default_tools_approval_mode="writes"'), true);
+  assert.equal(on.some((item) => String(item).startsWith("auto_review.policy=")), true);
+  assert.equal(on.includes('apps.github.default_tools_approval_mode="approve"'), false);
+  assert.equal(on.includes("--dangerously-bypass-approvals-and-sandbox"), false);
+  assert.equal(on.includes("danger-full-access"), false);
+  assert.equal(on.includes('approval_policy="never"'), false);
+  assert.equal(on.includes("read-only"), true);
 });
 
 test("guardian addendum narrows the exact run without replacing built-in auto-review", () => {

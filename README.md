@@ -3,7 +3,7 @@
 A Cowork/Claude Code plugin that lets Claude hand a repository task to OpenAI
 Codex and drive it to a finished, non-draft GitHub pull request — safely,
 without ever cloning the repo, running local Git, or exposing an API key.
-(Version 1.2.13.)
+(Version 1.3.0.)
 
 Everything happens through GitHub as the shared mailbox: Claude (in the "Fable"
 intake role) starts one bounded Codex run, polls GitHub for the branch, commit,
@@ -31,7 +31,7 @@ Codex over GitHub. The official path is unavailable; this one is not.
   incomplete instead of guessing.
 - **Deterministic evidence.** Certification comes from validated GitHub
   metadata — never from reassuring prose in a review comment.
-- **Fast, offline test suite.** 158 tests run in about a second with no
+- **Fast, offline test suite.** 164 tests run in about a second with no
   network, no GitHub, and no Codex (see [Contributing](CONTRIBUTING.md)).
 
 ## Requirements
@@ -225,11 +225,14 @@ inner blocked/no-PR outcome cannot be stored as complete or resumed.
   API/token/Claude/Anthropic environment variables, and fails closed on any
   observed shell, local file-change, web-search, unknown-tool, or non-GitHub MCP
   event.
-- GitHub writes go through Codex's on-request automatic approval reviewer, a
-  runtime safety control only — not Fable, SOL, Terra, an extra manager cycle,
-  or the GitHub code review — restricted per run to the exact repository, base,
-  task branch, scope, and non-draft PR. The plugin never enables `--yolo` or
-  danger-full-access.
+- GitHub writes run without an LLM approval gate by default. The automatic
+  approval reviewer that formerly gated them is removed; the GitHub app's write
+  tools auto-approve (`apps.github.default_tools_approval_mode="approve"`) and
+  safety rests on branch protection on the base branch of the target
+  repositories, the fail-closed host observer, and the guard family. Setting
+  `COWORK_CODEX_APPROVAL_GATE` reactivates that reviewer as a runtime safety
+  control only — not Fable, SOL, Terra, an extra manager cycle, or the GitHub
+  code review. The plugin never enables `--yolo` or danger-full-access.
 
 This is an architectural one-way boundary, not a claim of pre-execution or
 cryptographic interception: Codex collaboration-subagent activity is not fully
@@ -246,18 +249,19 @@ prompt contract, and fail-closed handling of every visible disallowed event.
   Windows fallback path. On Linux or Windows — or on macOS without the ChatGPT
   app — `codex` must be resolvable on `PATH`, otherwise the preflight reports
   Codex unavailable.
-- **The automatic-approval reviewer is non-deterministic.** In paired runs, the
-  on-request automatic approval reviewer denied one PR write and allowed another
-  for effectively equivalent input (the "Bug 8" observation in the
-  [changelog](CHANGELOG.md)). The plugin does not retry or bypass that
-  inconsistency. It removes the ambiguity instead — Terra is read-only, SOL owns
-  every mutation in the main thread, and a new PR body is exactly the canonical
-  marker — but it cannot make an external policy deterministic. Runs can still
-  stop incomplete because of it.
-- **No stable approval-pending signal.** Approval time cannot be subtracted from
-  the wall clock, so a long model-reasoning gap and a long approval wait look
-  the same from outside. The wall-clock cap is a hard per-attempt bound, not an
-  SLA.
+- **The former automatic-approval reviewer was non-deterministic (obsolete by
+  removal).** In paired runs, the on-request automatic approval reviewer denied
+  one PR write and allowed another for effectively equivalent input (the "Bug 8"
+  observation in the [changelog](CHANGELOG.md)). That reviewer has been removed,
+  so this inconsistency no longer applies to default runs. The ambiguity is gone
+  because Terra is read-only, SOL owns every mutation in the main thread, and a
+  new PR body is exactly the canonical marker; branch protection on the base
+  branch is the compensating pre-merge control. Reactivating the reviewer with
+  `COWORK_CODEX_APPROVAL_GATE` reintroduces the external non-determinism.
+- **No stable approval-pending signal (only when the approval gate is
+  reactivated).** Approval time cannot be subtracted from the wall clock, so a
+  long model-reasoning gap and a long approval wait look the same from outside.
+  The wall-clock cap is a hard per-attempt bound, not an SLA.
 - **GitHub/Codex behavior is external and can change.** Bundled fixtures capture
   real observed shapes at a point in time and are regression references,
   not a guarantee about the live service. A reported final run observed on

@@ -10,6 +10,52 @@ Repository names in the recorded observations below are neutral placeholders
 (`example-org/web-template`, `example-org/example-app`); the observations
 themselves are otherwise unchanged.
 
+## 1.3.0
+
+Removed the LLM approval gate for GitHub writes. The runtime automatic approval
+reviewer (`approvals_reviewer="auto_review"`) acted as a non-deterministic LLM
+gate that inconsistently blocked rule-conformant GitHub writes — documented as
+"Bug 8" and last observed on run `CFT-20260718-175818-63DABEBB`, where a
+`create_commit` on the correct task branch was denied despite a bounded
+re-request. That reviewer is gone; the "Bug 8" references are obsolete by
+removal.
+
+**CLI configuration.** The worker still starts Codex read-only
+(`sandbox_mode="read-only"`, `--sandbox read-only`, `approval_policy="on-request"`,
+`--strict-config`, ignored user config), and non-GitHub app writes still require
+approval (`apps._default.default_tools_approval_mode="writes"`). The only change
+is that the GitHub app's write tools now auto-approve
+(`apps.github.default_tools_approval_mode="approve"`) with no
+`approvals_reviewer` and no `auto_review.policy`. This is the minimal-invasive
+option: approval interception is disabled precisely for the GitHub MCP writes,
+not via a blanket `danger-full-access` or `--yolo`, and the read-only base mode
+for everything else is unchanged.
+
+**Reactivation flag.** Setting the `COWORK_CODEX_APPROVAL_GATE` environment
+variable to `1`, `true`, or `on` restores the legacy gate (the
+`approvals_reviewer="auto_review"` configuration and the run-specific
+`auto_review.policy`), so the feature can be re-enabled without a code change.
+
+**Approval-failure paths kept as fail-closed classification.** The
+`GITHUB_WRITE_APPROVAL_DENIED` / `_TIMEOUT` / `_ABORTED` reason codes, the
+one-retry tracker, and the sanitized `approval_denial_detail` projection are
+retained rather than deleted. They remain a general fail-closed classifier for a
+GitHub write that is rejected, times out, or is aborted — which now covers a
+push that branch protection or repository permissions reject — so removing them
+would have deleted tested protection that becomes more relevant under branch
+protection. Only the reviewer-policy producer (`buildAutoReviewPolicy`) stays
+gated behind the reactivation flag. No approval-classification test was deleted
+or weakened.
+
+**Security model after removal (three compensating controls).** Branch
+protection on the base branch of the target repositories (configured by the
+owner) blocks a bad merge to `main`; the fail-closed host observer and the full
+guard family (commit-message contract, branch/repository/force checks,
+marker-only PR body, `policyViolation` for foreign tools) block a bad write
+before it lands; the GitHub Automatic/`@codex review` quality review still runs
+unchanged. The host observer and guard family are untouched, proven by the
+retained negative tests.
+
 ## 1.2.13
 
 Robust commit observation across real MCP result shapes, plus a bounded,
