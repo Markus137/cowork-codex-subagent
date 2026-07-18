@@ -259,19 +259,6 @@ function classifyMcpApprovalFailure(event) {
   return approvalFailureObservation(event, state)?.code || null;
 }
 
-function approvalEventKey(event) {
-  const value = event?.item?.id;
-  if (value === undefined || value === null) return null;
-  const normalized = String(value).normalize("NFC").trim();
-  return normalized || null;
-}
-
-function sameDeferredApprovalCall(pending, event) {
-  if (event?.type !== "item.completed" || event.item?.type !== "mcp_tool_call") return false;
-  const key = approvalEventKey(event);
-  return pending.key !== null ? key === pending.key : key === null && normalizedApprovalTool(event) === pending.tool;
-}
-
 function mutationValidationError(guard) {
   return {
     path: guard.path,
@@ -536,7 +523,6 @@ async function runWorker(jobId, options = {}) {
   let violationValidationError = null;
   let observedApprovalFailure = null;
   const approvalRetryTracker = createApprovalRetryTracker();
-  let pendingApprovalMutationViolation = null;
   const publishProgress = createProgressPublisher(jobId, state, observations, {
     environment,
     mutateJobImpl: options.mutateJobImpl,
@@ -612,12 +598,6 @@ async function runWorker(jobId, options = {}) {
       }
       const startedTool = event?.type === "item.started" && event.item?.type === "mcp_tool_call"
         ? normalizedApprovalTool(event) : null;
-      if (startedTool && pendingApprovalMutationViolation) {
-        violation = pendingApprovalMutationViolation.guard.code;
-        violationValidationError = mutationValidationError(pendingApprovalMutationViolation.guard);
-        stopChild();
-        break;
-      }
       if (startedTool && APPROVAL_WRITE_ALLOWLIST.includes(startedTool)) {
         const args = event.item.arguments && typeof event.item.arguments === "object" ? event.item.arguments : {};
         const safePath = sanitizedTargetPath(args.path);
@@ -634,45 +614,16 @@ async function runWorker(jobId, options = {}) {
         stopChild();
         break;
       }
-      let handledDeferredApprovalCompletion = false;
-      if (pendingApprovalMutationViolation && event?.type === "item.completed" && event.item?.type === "mcp_tool_call") {
-        const pending = pendingApprovalMutationViolation;
-        if (!sameDeferredApprovalCall(pending, event)) {
-          violation = pending.guard.code;
-          violationValidationError = mutationValidationError(pending.guard);
-          stopChild();
-          break;
-        }
-        const deferredApprovalFailure = approvalFailureObservation(event, state);
-        if (deferredApprovalFailure) {
-          pendingApprovalMutationViolation = null;
-          handledDeferredApprovalCompletion = true;
-          observedApprovalFailure = deferredApprovalFailure.code;
-          if (deferredApprovalFailure.code === "GITHUB_WRITE_APPROVAL_DENIED") {
-            observations.approvalDenialDetail = deferredApprovalFailure.detail;
-            approvalRetryTracker.denied(deferredApprovalFailure.signature);
-          }
-        } else {
-          violation = pending.guard.code;
-          violationValidationError = mutationValidationError(pending.guard);
-          stopChild();
-          break;
-        }
-      }
+      // Fail closed on an invalid mutation at item.started, before the write can execute.
+      // A denial has no side effect and is classified from the failed completion below, so a
+      // well-formed but denied write still reports GITHUB_WRITE_APPROVAL_DENIED; an approved
+      // invalid write is never allowed to land on the task branch.
       const implementationCommitGuard = validateImplementationCommitBeforeMutation(observations, state, event);
       if (!implementationCommitGuard.ok) {
-        if (startedTool && APPROVAL_WRITE_ALLOWLIST.includes(startedTool)) {
-          pendingApprovalMutationViolation = {
-            key: approvalEventKey(event),
-            tool: startedTool,
-            guard: implementationCommitGuard,
-          };
-        } else {
-          violation = implementationCommitGuard.code;
-          violationValidationError = mutationValidationError(implementationCommitGuard);
-          stopChild();
-          break;
-        }
+        violation = implementationCommitGuard.code;
+        violationValidationError = mutationValidationError(implementationCommitGuard);
+        stopChild();
+        break;
       }
       const auditGuard = validateAuditReportBeforePullRequest(observations, state, event);
       if (!auditGuard.ok) {
@@ -694,7 +645,7 @@ async function runWorker(jobId, options = {}) {
         stopChild();
         break;
       }
-      const approvalFailure = handledDeferredApprovalCompletion ? null : approvalFailureObservation(event, state);
+      const approvalFailure = approvalFailureObservation(event, state);
       if (approvalFailure) {
         observedApprovalFailure = approvalFailure.code;
         if (approvalFailure.code === "GITHUB_WRITE_APPROVAL_DENIED") {
@@ -745,11 +696,6 @@ async function runWorker(jobId, options = {}) {
   clearInterval(cancellationPoll);
   process.removeListener("SIGTERM", onTermination);
   process.removeListener("SIGINT", onTermination);
-
-  if (!violation && pendingApprovalMutationViolation) {
-    violation = pendingApprovalMutationViolation.guard.code;
-    violationValidationError = mutationValidationError(pendingApprovalMutationViolation.guard);
-  }
 
   if (lineOverflow || violation) {
     const status = violation === "JOB_TIMEOUT" ? "incomplete" : "blocked";
@@ -894,7 +840,6 @@ module.exports = {
   buildStartPrompt,
   workerResultEnvelopeInstructions,
   policyViolation,
-  approvalEventKey,
   approvalFailureObservation,
   approvalRerequestInstruction,
   classifyMcpApprovalFailure,

@@ -2308,6 +2308,7 @@ test("commit-stage denial reports approval denial, not commit-message invalid, w
   writeJob(state, { environment });
   const argumentsValue = {
     repository_full_name: replay.repository, branch: replay.task_branch, path: "src/change.js",
+    message: implementationMessage(replay.source_run_id),
     content: "must-not-leak", token: "credential-must-not-leak", session_id: "internal-must-not-leak",
   };
   const events = [
@@ -2407,3 +2408,23 @@ test("approval policy and start prompt bind the full write-tool allowlist and re
   assert.equal(prompt.includes("attempt=2/2"), true);
   assert.equal(prompt.includes(state.id), true);
 });
+
+test("an approved-but-invalid mutation is blocked at item.started before it can land", async () => withJobs(async (environment) => {
+  const id = "CFT-20260717-214541-0883FBF3";
+  writeJob(stateFor(id), { environment });
+  const branch = taskBranchFor(id);
+  const invalidArgs = { repository_full_name: CONTRACT.repository, branch, path: "src/change.js", message: "not a valid marker message", content: "x" };
+  const events = [
+    { type: "thread.started", thread_id: THREAD_ID },
+    completedGithubEvent("create_branch", CONTRACT.repository, { branch_name: branch, base_ref: CONTRACT.base_branch }, { branch }),
+    { type: "item.started", item: { type: "mcp_tool_call", server: "codex_apps", tool: "github.create_commit", arguments: invalidArgs } },
+    // If the child were allowed to proceed past the invalid start, this approved completion would
+    // land a malformed commit. The host must stop at item.started, so it is never observed.
+    completedGithubEvent("create_commit", CONTRACT.repository, { branch, path: "src/change.js", message: "not a valid marker message", content: "x" }, { commit_sha: "b".repeat(40) }),
+  ];
+  await runWorker(id, terminalWorkerOptions(environment, events));
+  const report = resultJob(id, { environment });
+  assert.equal(report.status, "blocked");
+  assert.equal(report.code, "IMPLEMENTATION_COMMIT_MESSAGE_INVALID");
+  assert.equal(report.partial_evidence.last_completed_phase, "branch_created");
+}));

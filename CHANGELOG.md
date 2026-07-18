@@ -15,9 +15,11 @@ themselves are otherwise unchanged.
 Hardens GitHub write-denial handling and publishes a sanitized
 `partial_evidence.approval_denial_detail` on a denied write.
 
-- Denials are recorded before implementation-commit-message validation, so a
-  denied `create_commit` fails closed as `GITHUB_WRITE_APPROVAL_DENIED` instead
-  of being masked by `IMPLEMENTATION_COMMIT_MESSAGE_INVALID`.
+- An invalid mutation (a malformed implementation commit message or an
+  unauthorized PR-body update) fails closed at the tool's `item.started` event,
+  before the write can execute, so an approved-but-invalid write can never land
+  on the task branch. A well-formed write that is denied still reports
+  `GITHUB_WRITE_APPROVAL_DENIED` with the sanitized denial detail.
 - The published denial rationale is redacted: labelled and unlabelled
   credential formats, high-entropy blobs, host paths, and session/thread
   identifiers are dropped in favor of `runtime_emitted_no_rationale`; only a
