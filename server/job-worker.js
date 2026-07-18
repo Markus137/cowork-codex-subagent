@@ -91,7 +91,7 @@ function buildStartPrompt(state) {
     `Runtime selectors: SOL=${roles.SOL}; Terra=${roles.Terra}.\n` +
     "You must use the Codex collaboration capability to delegate substantive read-only inspection, analysis, and drafting to exactly one Terra subagent. " +
     "Remain the sole manager. Terra produces V1 through read-only GitHub MCP; you review V1 and issue at least one concrete, testable revision; Terra produces V2; you review V2. Terra must not perform GitHub mutations. After you accept V2, Terra returns the exact accepted content or change plan to you and stops. You, SOL, must personally perform every GitHub mutation and every final proof read in this main thread so the host can observe them. Never delegate a GitHub mutation, final exact-range fetch, final report self-fetch, or final PR read to Terra. Only after you accept V2 may you create the pull request directly with draft=false. " +
-    "The automatic approval reviewer is a Codex runtime safety control only: it is not Fable, SOL, Terra, a productive subagent, or a manager cycle, and it must never do task work. " +
+    "There is no automatic approval reviewer for your GitHub writes by default: your authorized writes run without approval interception, and safety rests on the read-only sandbox, the fail-closed host observer, the guard family, and branch protection on the base branch. If the optional approval reviewer is reactivated, it is a Codex runtime safety control only: it is not Fable, SOL, Terra, a productive subagent, or a manager cycle, and it must never do task work. " +
     "If collaboration subagents or GitHub MCP are absent, return blocked without implementing.\n\n" +
     `HARD TRANSPORT BOUNDARY: GITHUB_MCP_ONLY. Use only GitHub MCP tools to inspect the remote repository and, only after the delivery rule below permits it, create exactly task branch ${state.taskBranch} from ${contract.baseBranch}, commit, open the pull request directly with draft=false, and verify it is open and non-draft. ` +
     "Never run a shell command, local Git, clone, worktree, local repository read/write, GitHub Action, or OpenAI API-key workflow. Never merge.\n" +
@@ -110,7 +110,7 @@ function buildStartPrompt(state) {
     (contract.taskType === "implementation"
       ? `IMPLEMENTATION COMMIT EXPLANATION: Every github.create_file, github.update_file, or low-level github.create_commit call must put the explanation inside the already necessary commit message; never post a separate PR context comment. Use exactly seven lines and no final newline: a concise non-empty subject of at most 72 UTF-8 bytes; one blank line; COWORK_CODEX_IMPLEMENTATION_V1 | run_id=${state.id}; then exactly Problem: <what made the change necessary>; Change: <what the accepted Terra V2 changed>; Rationale: <why it is the bounded solution>; Verification: <how the exact remote result was checked, explicitly naming the checked scope>. Each section value is NFC, trimmed, non-empty, single-line, and at most 384 UTF-8 bytes; the complete message is at most 2048 UTF-8 bytes and contains no control character, @, URL, COWORK_CODEX_GATE_V1, or COWORK_CODEX_PR_CONTEXT_V1. For low-level writes, create_commit is not branch-effective until a successful update_ref binds that exact observed commit SHA to ${state.taskBranch} with force=false. Before PR creation and again at the final PR read, the visible PR head must equal the last branch-effective commit carrying this valid run-bound explanation. Every later correction commit must carry a fresh explanation for that correction.\n`
       : "") +
-    "If an app/MCP mutation is denied by automatic approval review, return blocked with reason_code GITHUB_WRITE_APPROVAL_DENIED. If review times out, return incomplete with GITHUB_WRITE_APPROVAL_TIMEOUT. If it is aborted or returns `user cancelled MCP tool call`, return blocked with GITHUB_WRITE_APPROVAL_ABORTED. A genuinely active reviewer request leaves the host job running; never fabricate an approval_pending result.\n\n" +
+    "If a GitHub write is rejected (for example by branch protection, repository permissions, or the optional approval reviewer when reactivated), return blocked with reason_code GITHUB_WRITE_APPROVAL_DENIED. If the write times out, return incomplete with GITHUB_WRITE_APPROVAL_TIMEOUT. If it is aborted or returns `user cancelled MCP tool call`, return blocked with GITHUB_WRITE_APPROVAL_ABORTED. A genuinely active reviewer request leaves the host job running; never fabricate an approval_pending result.\n\n" +
     workerResultEnvelopeInstructions(contract.taskType) +
     "For every finding_dispositions item, line is either a positive integer or null. Its URL must be the canonical same-repository blob URL for its exact path at either the final head_sha or, for audits only, audit_evidence.audited_sha; every other SHA is forbidden. A positive line requires the exact #L<line> anchor and null requires no fragment. Before every complete return, successfully read the open non-draft pull request with github.get_pr_info so the host can verify repository, base, task branch, head SHA, number, URL, and original PENDING body marker independently; github.fetch_pr is accepted only as the host-explicitly-allowlisted equivalent. For audits, this PR identity read occurs only after the complete report self-fetch at the exact final head SHA. A complete result requires the exact repository/base/task branch plus a full 40-hex head_sha, positive pr_number, and canonical https://github.com/OWNER/REPO/pull/NUMBER URL. Do not include credentials, process output, hidden reasoning, local paths, PIDs, or internal thread/session identifiers.";
 }
@@ -127,7 +127,7 @@ function buildResumePrompt(state) {
       ? `Every correction commit must use the same seven-line COWORK_CODEX_IMPLEMENTATION_V1 | run_id=${state.id} commit-message contract from the first turn, with fresh Problem, Change, Rationale, and scope-bearing Verification values for this correction. Do not post a PR context comment. The final PR head must equal the last branch-effective commit carrying that valid run-bound explanation.\n`
       : "") +
     workerResultEnvelopeInstructions(state.contract.taskType) +
-    "Return that strict final envelope with the new full head_sha, canonical PR identity, and one finding_dispositions entry with evidence for every forwarded finding. Use a canonical same-repository blob URL at the final head_sha or, for audits only, audit_evidence.audited_sha, with exact #L<line> for positive lines; use null and no fragment only when the referenced element is absent. For an audit, the SOL-owned final order is mandatory: personally re-fetch every exact same-audited-SHA range, apply the accepted mutations, self-fetch the complete report at the exact new final head SHA without a range, read the open non-draft PR with github.get_pr_info at that same head, then return; github.fetch_pr is only the host-explicitly-allowlisted equivalent. Do not mutate after the sequence starts. The returned PR body must still contain exactly once the original created-head PENDING / DO NOT MERGE marker even though the PR head is now new. Codex, SOL, and Terra must never post PASS. The automatic approval reviewer remains only a runtime safety control and is not a productive agent or manager cycle. Do not include internal thread/session identifiers.";
+    "Return that strict final envelope with the new full head_sha, canonical PR identity, and one finding_dispositions entry with evidence for every forwarded finding. Use a canonical same-repository blob URL at the final head_sha or, for audits only, audit_evidence.audited_sha, with exact #L<line> for positive lines; use null and no fragment only when the referenced element is absent. For an audit, the SOL-owned final order is mandatory: personally re-fetch every exact same-audited-SHA range, apply the accepted mutations, self-fetch the complete report at the exact new final head SHA without a range, read the open non-draft PR with github.get_pr_info at that same head, then return; github.fetch_pr is only the host-explicitly-allowlisted equivalent. Do not mutate after the sequence starts. The returned PR body must still contain exactly once the original created-head PENDING / DO NOT MERGE marker even though the PR head is now new. Codex, SOL, and Terra must never post PASS. Any optional approval reviewer, when reactivated, remains only a runtime safety control and is not a productive agent or manager cycle. Do not include internal thread/session identifiers.";
 }
 
 function buildAutoReviewPolicy(state) {
@@ -153,8 +153,34 @@ function tomlString(value) {
   return JSON.stringify(String(value));
 }
 
-function buildCodexArgs(state, workspace) {
-  const autoReviewPolicy = buildAutoReviewPolicy(state);
+// The LLM approval gate is removed by default. Setting COWORK_CODEX_APPROVAL_GATE to a truthy
+// value ("1", "true", or "on") reactivates the legacy automatic approval reviewer for GitHub
+// writes; every other value (and the unset default) runs GitHub writes without approval
+// interception.
+function approvalGateEnabled(environment = process.env) {
+  const flag = String(environment?.COWORK_CODEX_APPROVAL_GATE ?? "").trim().toLowerCase();
+  return flag === "1" || flag === "true" || flag === "on";
+}
+
+function githubWriteApprovalArgs(state, environment) {
+  if (approvalGateEnabled(environment)) {
+    // Legacy LLM approval gate: route every candidate GitHub write through the automatic
+    // approval reviewer before it can execute. Reactivated only by COWORK_CODEX_APPROVAL_GATE.
+    return [
+      "-c", 'approvals_reviewer="auto_review"',
+      "-c", 'apps._default.approvals_reviewer="auto_review"',
+      "-c", 'apps.github.default_tools_approval_mode="writes"',
+      "-c", 'apps.github.approvals_reviewer="auto_review"',
+      "-c", `auto_review.policy=${tomlString(buildAutoReviewPolicy(state))}`,
+    ];
+  }
+  // Default: GitHub write tools auto-approve and run without LLM approval interception. Safety
+  // now rests on the read-only sandbox, the fail-closed host observer, the guard family, and
+  // branch protection on the base branch of the target repositories.
+  return ["-c", 'apps.github.default_tools_approval_mode="approve"'];
+}
+
+function buildCodexArgs(state, workspace, environment = process.env) {
   const shared = [
     "--json",
     "--strict-config",
@@ -163,12 +189,8 @@ function buildCodexArgs(state, workspace) {
     "--model", state.roles.SOL,
     "-c", 'sandbox_mode="read-only"',
     "-c", 'approval_policy="on-request"',
-    "-c", 'approvals_reviewer="auto_review"',
     "-c", 'apps._default.default_tools_approval_mode="writes"',
-    "-c", 'apps._default.approvals_reviewer="auto_review"',
-    "-c", 'apps.github.default_tools_approval_mode="writes"',
-    "-c", 'apps.github.approvals_reviewer="auto_review"',
-    "-c", `auto_review.policy=${tomlString(autoReviewPolicy)}`,
+    ...githubWriteApprovalArgs(state, environment),
   ];
   if (state.request.kind === "resume") {
     return ["exec", "resume", ...shared, state.internal.threadId, "-"];
@@ -517,7 +539,7 @@ async function runWorker(jobId, options = {}) {
   }), environment);
   if (state.status !== "running") return;
 
-  const args = buildCodexArgs(state, workspace);
+  const args = buildCodexArgs(state, workspace, environment);
   const prompt = state.request.kind === "resume" ? buildResumePrompt(state) : buildStartPrompt(state);
   const spawnImpl = options.spawnImpl || spawn;
   const timeoutMs = options.timeoutMs ?? timeoutMsForState(state);
@@ -872,6 +894,7 @@ module.exports = {
   APPROVAL_WRITE_ALLOWLIST,
   GITHUB_WRITE_TOOLS,
   PROGRESS_HEARTBEAT_MS,
+  approvalGateEnabled,
   buildAutoReviewPolicy,
   buildCodexArgs,
   buildResumePrompt,

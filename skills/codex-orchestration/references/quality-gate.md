@@ -24,15 +24,19 @@ For the subscription path, setup uses the existing ChatGPT/Codex login plus
 the connected GitHub account. This workflow never requests an OpenAI API key,
 adds a GitHub Action, or invokes a local review runner.
 
-The Codex runtime's automatic approval reviewer is a separate permission
-boundary for side-effecting GitHub MCP calls. The worker combines
-`approval_policy="on-request"`, `approvals_reviewer="auto_review"`, GitHub
-write approval mode, strict configuration parsing, the built-in guardian
-baseline, and an additional run-specific restriction. It never uses yolo or
-full-access mode. This reviewer can approve or deny a tool request, but it does
-not research, implement, review code quality, act as Fable/SOL/Terra, or count
-as an iteration. Managed requirements remain authoritative and failures are
-reported explicitly rather than bypassed.
+The Codex runtime's automatic approval reviewer, which was a separate permission
+boundary for side-effecting GitHub MCP calls, is removed. By default the worker
+combines `approval_policy="on-request"`, the GitHub app's write tools
+auto-approving (`apps.github.default_tools_approval_mode="approve"`), strict
+configuration parsing, the read-only sandbox, the built-in guardian baseline,
+and the fail-closed host observer. It never uses yolo or full-access mode.
+Branch protection on the base branch of the target repositories is the
+compensating pre-merge control. Setting `COWORK_CODEX_APPROVAL_GATE` reactivates
+the reviewer (restoring `approvals_reviewer="auto_review"` and GitHub write
+approval mode `writes`); when reactivated it can approve or deny a tool request,
+but it never researches, implements, reviews code quality, acts as
+Fable/SOL/Terra, or counts as an iteration. Managed requirements remain
+authoritative and failures are reported explicitly rather than bypassed.
 
 Historical initial-review observations were supplied on 2026-07-16 without
 this plugin inspecting the cited PRs. They reported

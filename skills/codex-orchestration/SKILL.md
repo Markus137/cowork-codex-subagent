@@ -11,7 +11,7 @@ description: >
   not use for general fileless work without a target repository, a short
   follow-up question, installation explanation, status check, confirmation,
   greeting, or a clarification required before safe delegation.
-version: 1.2.13
+version: 1.3.0
 ---
 
 # GitHub-only Codex-First orchestration
@@ -288,33 +288,42 @@ new final head.
 
 ## Runtime GitHub-write approval
 
-The host worker runs Codex read-only with `approval_policy="on-request"`,
-`approvals_reviewer="auto_review"`, GitHub write tools set to approval mode
-`writes`, `--strict-config`, and ignored user config. The automatic approval
-reviewer is only the runtime safety reviewer for side-effecting GitHub MCP calls. It is not Fable,
-SOL, Terra, a productive agent, an extra manager cycle, or the GitHub code
-quality review.
+The LLM approval gate is removed. By default the host worker runs Codex
+read-only with `approval_policy="on-request"`, `--strict-config`, ignored user
+config, and the GitHub app's write tools auto-approving
+(`apps.github.default_tools_approval_mode="approve"`). No automatic approval
+reviewer intercepts GitHub writes, so rule-conformant writes are no longer
+blocked by a non-deterministic LLM gate (the "Bug 8" observation, now obsolete
+by removal).
 
-The built-in guardian policy remains the baseline. A run-specific additional
-policy narrows candidate writes to the exact repository, base, deterministic
-task branch, scope, and non-draft PR. It denies merge, delete, force-push,
-base-branch writes, closing/retargeting, workflow or repository administration,
-secrets, releases, and unrelated repositories or branches. Never use `--yolo`,
-danger-full-access, or a blanket full-access setting. A managed policy may
-still deny a requested write; do not bypass it.
+Safety no longer depends on that reviewer. The compensating controls are branch
+protection on the base branch of the target repositories (configured by the
+repository owner), the fail-closed host observer, and the full guard family
+(implementation commit-message contract, branch/repository/force checks,
+marker-only PR body, and `policyViolation` for foreign tools). The read-only
+sandbox and the built-in guardian baseline still apply; the plugin never uses
+`--yolo`, danger-full-access, or a blanket full-access setting.
 
-A write that is rejected, times out, or is aborted must fail closed with the
-specific reason code `GITHUB_WRITE_APPROVAL_DENIED`,
-`GITHUB_WRITE_APPROVAL_TIMEOUT`, or `GITHUB_WRITE_APPROVAL_ABORTED`.
-Timeout classification takes precedence when a completed failure message also
-contains denial language. The CLI stream exposes no separate stable in-flight
-reviewer signal: while a tool call is active the host job remains `running`.
-A terminal model envelope with `approval_pending` is invalid and fails closed;
-the model must never fabricate it. A cancelled MCP call is never success.
-When a validated non-complete worker envelope carries the same observed
-approval-failure reason code, preserve that envelope and its SOL-to-Terra
-evidence while deriving the outer terminal state from it. A missing, invalid,
-or contradictory envelope fails closed without exposing it as the result.
+The reviewer can be reactivated for a run by setting the
+`COWORK_CODEX_APPROVAL_GATE` environment variable, which restores
+`approvals_reviewer="auto_review"` and the GitHub write approval mode `writes`.
+When reactivated it is only the runtime safety control for side-effecting GitHub
+MCP calls. It is not Fable, SOL, Terra, a productive agent, an extra manager
+cycle, or the GitHub code quality review.
+
+A GitHub write that is rejected, times out, or is aborted still fails closed
+with the specific reason code `GITHUB_WRITE_APPROVAL_DENIED`,
+`GITHUB_WRITE_APPROVAL_TIMEOUT`, or `GITHUB_WRITE_APPROVAL_ABORTED` — for
+example a push that branch protection rejects. Timeout classification takes
+precedence when a completed failure message also contains denial language. The
+CLI stream exposes no separate stable in-flight reviewer signal: while a tool
+call is active the host job remains `running`. A terminal model envelope with
+`approval_pending` is invalid and fails closed; the model must never fabricate
+it. A cancelled MCP call is never success. When a validated non-complete worker
+envelope carries the same observed write-failure reason code, preserve that
+envelope and its SOL-to-Terra evidence while deriving the outer terminal state
+from it. A missing, invalid, or contradictory envelope fails closed without
+exposing it as the result.
 
 If a task-branch commit is observed but no PR exists, the host returns an exact
 `commit_without_pr` residue. When the committed file is the required audit

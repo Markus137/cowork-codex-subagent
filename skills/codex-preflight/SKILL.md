@@ -4,7 +4,7 @@ description: >
   This skill should be used when the user asks to "run a Codex preflight",
   "check Codex MCP health", "verify the ChatGPT Codex login", or "test a
   Codex roundtrip" before relying on Codex in Cowork.
-version: 1.2.13
+version: 1.3.0
 ---
 
 # Codex Preflight
