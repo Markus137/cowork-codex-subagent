@@ -2333,6 +2333,12 @@ test("commit-stage denial reports approval denial, not commit-message invalid, w
   });
   const serialized = JSON.stringify(report.partial_evidence.approval_denial_detail);
   assert.doesNotMatch(serialized, /must-not-leak|credential|session_id/);
+  // The detail must also survive the MCP-facing projection in server/index.js.
+  const mcp = formatJobResult(report).structuredContent;
+  assert.deepEqual(mcp.partial_evidence.approval_denial_detail, {
+    rationale: "runtime_emitted_no_rationale", tool: "create_commit",
+    target: { repository: replay.repository, branch: replay.task_branch, path: "src/change.js" },
+  });
 }));
 
 test("denial rationale redacts unlabelled credentials and high-entropy values", () => {
@@ -2346,7 +2352,11 @@ test("denial rationale redacts unlabelled credentials and high-entropy values", 
   assert.equal(denial({ message: "automatic approval denied this request", reason: "content still contains ghp_ABCDEFGHIJKLMNOPQRSTUV" }).detail.rationale, "runtime_emitted_no_rationale");
   // High-entropy blob without a token:/secret: label is treated as suspicious.
   assert.equal(denial({ message: "denied", rationale: "value a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6q7R8 rejected" }).detail.rationale, "runtime_emitted_no_rationale");
-  // A genuinely benign rationale is preserved verbatim.
+  // Absolute host paths are redacted on Linux, not only macOS/Windows.
+  assert.equal(denial({ message: "denied", rationale: "path /home/codex/job/src is out of scope" }).detail.rationale, "runtime_emitted_no_rationale");
+  assert.equal(denial({ message: "denied", rationale: "the /tmp/build/output artifact was rejected" }).detail.rationale, "runtime_emitted_no_rationale");
+  assert.equal(denial({ message: "denied", rationale: "/workspace/repo/secret.env is not allowed" }).detail.rationale, "runtime_emitted_no_rationale");
+  // A genuinely benign rationale (including a repo-relative path) is preserved verbatim.
   assert.equal(denial({ message: "denied", rationale: "branch is outside the allowed scope" }).detail.rationale, "branch is outside the allowed scope");
   assert.equal(containsSuspiciousSecretLiteral("ghp_ABCDEFGHIJKLMNOPQRSTUV"), true);
   assert.equal(containsSuspiciousSecretLiteral("outside the allowed scope"), false);

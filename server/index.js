@@ -278,6 +278,22 @@ function plainObject(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value) && Object.getPrototypeOf(value) === Object.prototype;
 }
 
+function projectApprovalDenialDetail(value, repository, taskBranch) {
+  if (!plainObject(value)) return null;
+  const { rationale, tool, target } = value;
+  if (typeof rationale !== "string" || Buffer.byteLength(rationale, "utf8") > 1024 || /[\u0000-\u001f\u007f]/.test(rationale)) return null;
+  if (typeof tool !== "string" || !/^[a-z_]{1,40}$/.test(tool)) return null;
+  if (!plainObject(target) || target.repository !== repository || target.branch !== taskBranch) return null;
+  const projectedTarget = { repository, branch: taskBranch };
+  if (target.path !== undefined) {
+    if (typeof target.path !== "string" || Buffer.byteLength(target.path, "utf8") > 512 || target.path.startsWith("/") ||
+        target.path.includes("\\") || /[\u0000-\u001f\u007f]/.test(target.path) ||
+        target.path.split("/").some((part) => !part || part === "." || part === "..")) return null;
+    projectedTarget.path = target.path;
+  }
+  return { rationale, tool, target: projectedTarget };
+}
+
 function projectPartialEvidence(value) {
   if (!plainObject(value)) return null;
   const repository = typeof value.repository === "string" && /^[A-Za-z0-9_.-]{1,100}\/[-A-Za-z0-9_.]{1,100}$/.test(value.repository) ? value.repository : null;
@@ -289,7 +305,10 @@ function projectPartialEvidence(value) {
     : typeof value.pr_url === "string" && value.pr_url === `https://github.com/${repository}/pull/${prNumber}` ? value.pr_url : undefined;
   const phases = new Set(["branch_created", "branch_or_commit_observed", "commit_observed", "pr_created", "audit_artifact_committed_pr_missing", "commit_without_pr", "pr_verified"]);
   if (!repository || !baseBranch || !taskBranch || headSha === undefined || prNumber === undefined || prUrl === undefined || !phases.has(value.last_completed_phase)) return null;
-  return { repository, base_branch: baseBranch, task_branch: taskBranch, head_sha: headSha, pr_number: prNumber, pr_url: prUrl, last_completed_phase: value.last_completed_phase };
+  const projected = { repository, base_branch: baseBranch, task_branch: taskBranch, head_sha: headSha, pr_number: prNumber, pr_url: prUrl, last_completed_phase: value.last_completed_phase };
+  const approvalDenialDetail = projectApprovalDenialDetail(value.approval_denial_detail, repository, taskBranch);
+  if (approvalDenialDetail) projected.approval_denial_detail = approvalDenialDetail;
+  return projected;
 }
 
 function projectLeftoverResources(value) {
