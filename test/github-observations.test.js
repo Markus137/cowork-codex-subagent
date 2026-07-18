@@ -654,6 +654,39 @@ test("ambiguous or absent commit SHAs never register or falsely bind", () => {
   assert.equal(ambiguousText.pendingImplementationCommits.length, 0);
 });
 
+test("text SHA fallback is refused when structured content is present or the hex run is not a bare 40-hex SHA", () => {
+  const state = { contract: { taskType: "implementation" } };
+  const message = shapeMessage();
+  const commitArgs = { repository_full_name: shapeFixture.repository, message, tree: "1".repeat(40), parents: ["2".repeat(40)] };
+  // Structured content of an unrecognized shape must not fall through to text the result could
+  // have echoed from anywhere (an error string, a quoted message): the ledger stays empty and a
+  // later update_ref to the text-mentioned SHA stays blocked.
+  const unrecognized = createObservationCollector(shapeContext());
+  observeGithubEvent(unrecognized, completedShape("create_commit", commitArgs, {
+    structured: { outcome: "created" },
+    text: `Rejected: branch head moved to ${shapeFixture.second_sha}.`,
+  }));
+  assert.equal(unrecognized.pendingImplementationCommits.length, 0);
+  assert.equal(unrecognized.implementationCommitViolation, true);
+  const refArgs = { repository_full_name: shapeFixture.repository, branch_name: shapeFixture.task_branch, sha: shapeFixture.second_sha, force: false };
+  const guard = validateImplementationCommitBeforeMutation(unrecognized, state, started("update_ref", refArgs));
+  assert.equal(guard.ok, false);
+  assert.equal(guard.rule, "update_ref_requires_observed_explained_commit");
+  // A longer hex run in a text-only result (a sha256 digest, a 41-hex token) must not yield a
+  // 40-hex substring match.
+  for (const text of [`Digest ${"a".repeat(64)} recorded.`, `Token ${shapeFixture.commit_sha}0 recorded.`]) {
+    const longHex = createObservationCollector(shapeContext());
+    observeGithubEvent(longHex, completedShape("create_commit", commitArgs, { text }));
+    assert.equal(longHex.pendingImplementationCommits.length, 0, text);
+  }
+  // The genuine text-only shape still registers.
+  const textOnly = createObservationCollector(shapeContext());
+  observeGithubEvent(textOnly, completedShape("create_commit", commitArgs, {
+    text: `Created commit ${shapeFixture.commit_sha}.`,
+  }));
+  assert.equal(textOnly.pendingImplementationCommits.length, 1);
+});
+
 test("corrigible commit-guard deviations name the rule and expected correction, terminal ones do not", () => {
   const state = { contract: { taskType: "implementation" } };
   const message = shapeMessage();

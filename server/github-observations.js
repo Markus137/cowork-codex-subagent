@@ -82,7 +82,7 @@ function completedGithubCall(event) {
   // Real Codex GitHub MCP results carry either structured_content or a text content block (or
   // both). A call with neither carries no observable evidence and is ignored.
   if (!structured && textContent === null) return null;
-  return { tool, args: item.arguments, structured: structured || {}, textContent };
+  return { tool, args: item.arguments, structured: structured || {}, hasStructured: structured !== null, textContent };
 }
 
 // Commit SHAs surface at different structured paths across GitHub MCP result shapes (a raw git
@@ -106,21 +106,26 @@ function shaAtPath(root, path) {
 
 function uniqueTextSha(textContent) {
   if (typeof textContent !== "string") return null;
-  const matches = textContent.match(/[0-9a-f]{40}/gi);
+  // Hex boundaries keep a longer hex run (a sha256 digest, a 41+-hex token) from yielding a
+  // 40-character substring that was never a commit SHA.
+  const matches = textContent.match(/(?<![0-9a-fA-F])[0-9a-f]{40}(?![0-9a-fA-F])/gi);
   if (!matches) return null;
   const unique = new Set(matches.map((value) => value.toLowerCase()));
   return unique.size === 1 ? [...unique][0] : null;
 }
 
-function extractCommitSha(structured, textContent) {
+function extractCommitSha(call) {
   const candidates = new Set();
   for (const path of COMMIT_SHA_PATHS) {
-    const sha = shaAtPath(structured, path);
+    const sha = shaAtPath(call.structured, path);
     if (sha) candidates.add(sha);
   }
   if (candidates.size === 1) return [...candidates][0];
   if (candidates.size > 1) return null;
-  return uniqueTextSha(textContent);
+  // The text block is a last resort only when the call carried no structured content at all.
+  // Structured content of an unrecognized shape stays unregistered rather than falling through
+  // to text a tool result could have echoed from anywhere.
+  return call.hasStructured ? null : uniqueTextSha(call.textContent);
 }
 
 function startedGithubCall(event) {
@@ -446,7 +451,7 @@ function observeGithubEvent(collector, event) {
   if (call.tool === "create_file" || call.tool === "update_file") {
     const branch = exactValue(call.args, ["branch", "branch_name"]);
     const filePath = normalizedString(call.args.path);
-    const commitSha = extractCommitSha(call.structured, call.textContent);
+    const commitSha = extractCommitSha(call);
     if (branch === taskBranch && commitSha) {
       collector.branchCreated = true;
       collector.commitObserved = true;
@@ -468,7 +473,7 @@ function observeGithubEvent(collector, event) {
   }
 
   if (call.tool === "create_commit" && collector.context.taskType === "implementation") {
-    const commitSha = extractCommitSha(call.structured, call.textContent);
+    const commitSha = extractCommitSha(call);
     const message = call.args.message;
     if (!commitSha || acceptedImplementationCommitMessage(message, runId) !== message) {
       collector.implementationCommitViolation = true;

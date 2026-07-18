@@ -27,17 +27,21 @@ other equivalent MCP result shape left the explained-commit ledger empty and
 - **Shape-tolerant SHA extraction.** A fallback chain now reads the commit SHA
   from `result.sha`, `sha`, `result.commit.sha`, `commit.sha`, `result.object.sha`,
   `object.sha`, and `commit_sha`, accepting a value only when the present shapes
-  agree; conflicting shapes are ambiguous and rejected. When a call carries no
-  structured content, a single unambiguous 40-hex SHA in the text content block
-  is used as a last resort. A `create_commit` with a correct seven-line body is
-  never rejected on result shape alone.
+  agree; conflicting shapes are ambiguous and rejected. Only when a call carries
+  no structured content at all, a single unambiguous hex-bounded 40-hex SHA in
+  the text content block is used as a last resort; structured content of an
+  unrecognized shape never falls through to text, and a longer hex run (such as
+  a sha256 digest) never yields a 40-hex substring match. A `create_commit` with
+  a correct seven-line body is never rejected on result shape alone.
 - **No silent terminal block for corrigible deviations.** A corrigible
   commit-guard deviation — a reused explanation
   (`new_commit_requires_fresh_explanation`) or a well-formed `update_ref` to a
   not-yet-observed explained commit
   (`update_ref_requires_observed_explained_commit`) — now names the rule and the
-  exact expected correction, and is flagged correctable for exactly one machine
-  correction per run; a repeat after the correction resume is terminal.
+  exact expected correction in a classified guard result carrying a correctable
+  flag. The run itself still ends fail-closed: the automatic in-run correction
+  resume for guard blocks is not yet wired (today only `complete` jobs can be
+  resumed), so the correctable flag is advisory until that resume gate lands.
 - **Protection unchanged.** Unexplained commit bodies, foreign repositories or
   branches, force pushes, and base-branch writes stay rejected and are never
   advertised as correctable; the invalid write is still stopped at
