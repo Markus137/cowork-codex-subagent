@@ -14,11 +14,12 @@ themselves are otherwise unchanged.
 
 Closes two edge cases in the 1.2.10 write-denial handling.
 
-- A denied path-scoped write (`create_file`/`update_file`) is now tracked
-  against the signature recorded at its `item.started` event, so a failed
-  `item.completed` that omits `arguments` no longer records an empty-path
-  signature. A denied path reliably reaches `denied_once`, and a third
-  re-request for the same path fails closed.
+- A denied path-scoped write (`create_file`/`update_file`) is now correlated to
+  the signature recorded at its own `item.started` event via a per-tool FIFO
+  queue, so a failed `item.completed` that omits `arguments` no longer records
+  an empty-path signature, and two same-tool writes in flight no longer
+  overwrite each other's tracking. A denied path reliably reaches `denied_once`,
+  and a third re-request for the same path fails closed.
 - A first-write denial (for example `create_branch` failing approval before any
   branch is observed) now surfaces the sanitized denial rationale to the caller:
   `sanitizedPublicEvidence` accepts a denial-only evidence object carrying only

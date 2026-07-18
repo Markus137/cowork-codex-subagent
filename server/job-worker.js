@@ -529,7 +529,14 @@ async function runWorker(jobId, options = {}) {
   let violationValidationError = null;
   let observedApprovalFailure = null;
   const approvalRetryTracker = createApprovalRetryTracker();
+  // Per-tool FIFO queue of the signatures recorded at each write's item.started. A completion is
+  // correlated to the oldest unmatched start of the same tool, so two same-tool writes in flight
+  // do not overwrite each other and an argument-less completion still resolves the right path.
   const startedWriteSignatures = new Map();
+  const dequeueStartedSignature = (tool) => {
+    const queue = tool ? startedWriteSignatures.get(tool) : null;
+    return queue && queue.length ? queue.shift() : null;
+  };
   const publishProgress = createProgressPublisher(jobId, state, observations, {
     environment,
     mutateJobImpl: options.mutateJobImpl,
@@ -617,9 +624,11 @@ async function runWorker(jobId, options = {}) {
           stopChild();
           break;
         }
-        // Remember the exact started signature so a later failed/completed event that omits
+        // Enqueue the exact started signature so a later failed/completed event that omits
         // arguments is correlated to the same write instead of a recomputed empty-path signature.
-        startedWriteSignatures.set(startedTool, signature);
+        const queue = startedWriteSignatures.get(startedTool) || [];
+        queue.push(signature);
+        startedWriteSignatures.set(startedTool, queue);
       }
       const blocked = policyViolation(event);
       if (blocked) {
@@ -662,7 +671,7 @@ async function runWorker(jobId, options = {}) {
       if (approvalFailure) {
         observedApprovalFailure = approvalFailure.code;
         const failedTool = normalizedApprovalTool(event);
-        const signature = (failedTool && startedWriteSignatures.get(failedTool)) || approvalFailure.signature;
+        const signature = dequeueStartedSignature(failedTool) || approvalFailure.signature;
         if (approvalFailure.code === "GITHUB_WRITE_APPROVAL_DENIED") {
           observations.approvalDenialDetail = approvalFailure.detail;
           approvalRetryTracker.denied(signature);
@@ -675,7 +684,7 @@ async function runWorker(jobId, options = {}) {
         if (tool && APPROVAL_WRITE_ALLOWLIST.includes(tool)) {
           const args = event.item.arguments && typeof event.item.arguments === "object" ? event.item.arguments : {};
           const recomputed = `${tool}|${state.contract.repository}|${state.taskBranch}|${sanitizedTargetPath(args.path) || ""}`;
-          const signature = startedWriteSignatures.get(tool) || recomputed;
+          const signature = dequeueStartedSignature(tool) || recomputed;
           if (approvalRetryTracker.succeeded(signature)) {
             observedApprovalFailure = null;
             observations.approvalDenialDetail = null;

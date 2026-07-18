@@ -2520,3 +2520,38 @@ test("a first-write denial surfaces the sanitized detail without any observed pr
   // The denial-only evidence must also survive the MCP-facing projection.
   assert.deepEqual(formatJobResult(report).structuredContent.partial_evidence.approval_denial_detail, expectedDetail);
 }));
+
+test("two same-tool writes in flight track denials per call, not per tool", async () => withJobs(async (environment) => {
+  const replay = JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures", "replay-9e4b2a7d.json"), "utf8"));
+  const base = stateFor(replay.source_run_id);
+  const state = stateFor(replay.source_run_id, {
+    contract: { ...base.contract, repository: replay.repository, baseBranch: replay.base_branch },
+    taskBranch: replay.task_branch,
+  });
+  writeJob(state, { environment });
+  const startFor = (targetPath, subject) => ({
+    type: "item.started",
+    item: {
+      type: "mcp_tool_call", server: "codex_apps", tool: `github.${replay.denied_tool}`,
+      arguments: { repository_full_name: replay.repository, branch: replay.task_branch, path: targetPath, message: implementationMessage(replay.source_run_id, { subject }), content: "x" },
+    },
+  });
+  const denyNoArgs = { type: "item.completed", item: { type: "mcp_tool_call", server: "codex_apps", tool: `github.${replay.denied_tool}`, status: "failed", error: { message: "automatic approval denied this request" } } };
+  const events = [
+    { type: "thread.started", thread_id: THREAD_ID },
+    startFor(replay.first_path, "Implement scoped correction one"),
+    startFor(replay.second_path, "Implement scoped correction two"), // both in flight before any completion
+    denyNoArgs, // FIFO -> correlates to first_path
+    denyNoArgs, // FIFO -> correlates to second_path
+    startFor(replay.first_path, "Implement scoped correction one"), // bounded retry of first_path
+    denyNoArgs, // first_path -> denied twice
+    startFor(replay.first_path, "Implement scoped correction one"), // third attempt on first_path must fail closed
+    // If the first path were mis-tracked (per-tool overwrite), the third start would be allowed and
+    // this non-GitHub started event would surface a different terminal code.
+    { type: "item.started", item: { type: "mcp_tool_call", server: "imessage", tool: "send" } },
+  ];
+  await runWorker(replay.source_run_id, terminalWorkerOptions(environment, events));
+  const report = resultJob(replay.source_run_id, { environment });
+  assert.equal(report.status, replay.expected_status);
+  assert.equal(report.code, replay.expected_code);
+}));
