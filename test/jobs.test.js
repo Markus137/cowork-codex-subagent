@@ -2359,6 +2359,9 @@ test("denial rationale redacts unlabelled credentials and high-entropy values", 
   // Single-segment absolute host paths are redacted too.
   assert.equal(denial({ message: "denied", rationale: "wrote to /tmp" }).detail.rationale, "runtime_emitted_no_rationale");
   assert.equal(denial({ message: "denied", rationale: "/workspace is off limits" }).detail.rationale, "runtime_emitted_no_rationale");
+  // Quoted or parenthesized absolute host paths are redacted too.
+  assert.equal(denial({ message: "denied", rationale: "path \"/home/codex/job/src\" is out of scope" }).detail.rationale, "runtime_emitted_no_rationale");
+  assert.equal(denial({ message: "denied", rationale: "blocked (/etc/passwd)" }).detail.rationale, "runtime_emitted_no_rationale");
   // A genuinely benign rationale (including a repo-relative path) is preserved verbatim.
   assert.equal(denial({ message: "denied", rationale: "branch is outside the allowed scope" }).detail.rationale, "branch is outside the allowed scope");
   assert.equal(containsSuspiciousSecretLiteral("ghp_ABCDEFGHIJKLMNOPQRSTUV"), true);
