@@ -10,6 +10,34 @@ Repository names in the recorded observations below are neutral placeholders
 (`example-org/web-template`, `example-org/example-app`); the observations
 themselves are otherwise unchanged.
 
+## 1.2.12
+
+Version and changelog catch-up: five write-denial commits landed on `main` after
+the 1.2.11 bump without their own version, so 1.2.12 carries them for the
+marketplace. The behavioral changes:
+
+- **Denial signature correlation.** A denial is correlated to the signature
+  recorded at the write's own `item.started` event, so an argument-less failed
+  `item.completed` no longer records an empty-path signature and a denied
+  path-scoped write reliably reaches `denied_once`.
+- **Per-tool FIFO assignment.** Started signatures are queued per tool, so two
+  same-tool writes in flight track independently instead of overwriting each
+  other, and each completion resolves the write it belongs to.
+- **Per-signature outstanding failures.** A write that recovers on its allowed
+  retry clears only its own failure; another still-open denial or timeout stays
+  the observed terminal outcome instead of `CODEX_RUN_FAILED`.
+- **First-write detail preservation.** A first-write denial with no branch
+  observed yet still surfaces the sanitized `approval_denial_detail` through a
+  denial-only `partial_evidence` shape.
+- **Extended host-path redaction.** Denial rationales now also redact
+  single-segment absolute paths (`/tmp`, `/workspace`) and quoted or
+  parenthesized absolute paths, in addition to `/Users/` and Windows drive
+  paths.
+
+Denied approvals still terminate as `blocked`/`incomplete` with the correct
+reason code, timeouts and aborts are still never retried, and no
+`approval_pending` state is invented.
+
 ## 1.2.11
 
 Closes two edge cases in the 1.2.10 write-denial handling.

@@ -5,14 +5,14 @@
   },
   "metadata": {
     "description": "Cowork-native host bridge for bounded, GitHub-only Codex-First orchestration, status, resume, and review.",
-    "version": "1.2.11"
+    "version": "1.2.12"
   },
   "plugins": [
     {
       "name": "cowork-codex-subagent",
       "source": "./",
       "description": "Cowork-native host bridge for bounded, GitHub-only Codex-First orchestration, status, resume, and review.",
-      "version": "1.2.11",
+      "version": "1.2.12",
       "author": {
         "name": "Markus Streifinger"
       },
