@@ -18,6 +18,8 @@ const EXPECTED = Object.freeze({
   INTEGER: "integer",
   NON_EMPTY_STRING: "non-empty string",
   NON_EMPTY_EXACT_STRING: "non-empty byte-exact string",
+  FRESH_COMMIT_EXPLANATION: "a distinct explained commit body with a fresh Problem, Change, Rationale, and Verification for this commit",
+  OBSERVED_EXPLAINED_COMMIT: "an explained commit whose host-observed result SHA is bound to the task branch with force=false",
   NULL_OR_NON_EMPTY_STRING: "null or a non-empty string",
   NULL_OR_POSITIVE_INTEGER: "null or a positive integer",
   OBJECT: "object",

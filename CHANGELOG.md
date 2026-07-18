@@ -10,6 +10,43 @@ Repository names in the recorded observations below are neutral placeholders
 (`example-org/web-template`, `example-org/example-app`); the observations
 themselves are otherwise unchanged.
 
+## 1.2.13
+
+Robust commit observation across real MCP result shapes, plus a bounded,
+self-describing commit guard. Since the 1.2.9 public release, every
+implementation run failed with `IMPLEMENTATION_COMMIT_MESSAGE_INVALID` before a
+commit landed on the task branch. Reproduced with sanitized replay fixtures
+(`test/fixtures/replay-commit-shapes.json`) covering the observed runs
+(`CFT-20260718-150029-9E85EBCA`, `CFT-20260718-151200-33D39EAF`,
+`CFT-20260717-214541-0883FBF3`). Root cause: the observer read a low-level
+`create_commit` result SHA only from `structured.result.sha` (and a
+`create_file`/`update_file` SHA only from `structured.commit_sha`), so every
+other equivalent MCP result shape left the explained-commit ledger empty and
+`update_ref` was terminally blocked as `update_ref_requires_observed_explained_commit`.
+
+- **Shape-tolerant SHA extraction.** A fallback chain now reads the commit SHA
+  from `result.sha`, `sha`, `result.commit.sha`, `commit.sha`, `result.object.sha`,
+  `object.sha`, and `commit_sha`, accepting a value only when the present shapes
+  agree; conflicting shapes are ambiguous and rejected. Only when a call carries
+  no structured content at all, a single unambiguous hex-bounded 40-hex SHA in
+  the text content block is used as a last resort; structured content of an
+  unrecognized shape never falls through to text, and a longer hex run (such as
+  a sha256 digest) never yields a 40-hex substring match. A `create_commit` with
+  a correct seven-line body is never rejected on result shape alone.
+- **No silent terminal block for corrigible deviations.** A corrigible
+  commit-guard deviation — a reused explanation
+  (`new_commit_requires_fresh_explanation`) or a well-formed `update_ref` to a
+  not-yet-observed explained commit
+  (`update_ref_requires_observed_explained_commit`) — now names the rule and the
+  exact expected correction in a classified guard result carrying a correctable
+  flag. The run itself still ends fail-closed: the automatic in-run correction
+  resume for guard blocks is not yet wired (today only `complete` jobs can be
+  resumed), so the correctable flag is advisory until that resume gate lands.
+- **Protection unchanged.** Unexplained commit bodies, foreign repositories or
+  branches, force pushes, and base-branch writes stay rejected and are never
+  advertised as correctable; the invalid write is still stopped at
+  `item.started` before it can land.
+
 ## 1.2.12
 
 Version and changelog catch-up: five write-denial commits landed on `main` after
