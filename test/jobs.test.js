@@ -554,8 +554,8 @@ test("prompt and CLI arguments enforce one-way GitHub-only transport", () => {
   // The LLM approval gate is removed by default: no approvals_reviewer, no auto_review.policy,
   // and the GitHub app's write tools auto-approve instead of routing writes through a reviewer.
   assert.equal(args.some((item) => String(item).includes('approvals_reviewer="auto_review"')), false);
-  assert.equal(args.includes(`apps.${JSON.stringify(TEST_GITHUB_CONNECTOR_ID)}.default_tools_approval_mode="approve"`), true);
-  assert.equal(args.includes(`apps.${JSON.stringify(TEST_GITHUB_CONNECTOR_ID)}.default_tools_approval_mode="writes"`), false);
+  assert.equal(args.includes(`apps.${TEST_GITHUB_CONNECTOR_ID}.default_tools_approval_mode="approve"`), true);
+  assert.equal(args.includes(`apps.${TEST_GITHUB_CONNECTOR_ID}.default_tools_approval_mode="writes"`), false);
   assert.equal(args.some((item) => String(item).startsWith("auto_review.policy=")), false);
   // Non-GitHub app writes are still not auto-approved (read-only base for everything else).
   assert.equal(args.includes('apps._default.default_tools_approval_mode="writes"'), true);
@@ -607,7 +607,7 @@ test("COWORK_CODEX_APPROVAL_GATE reactivates the legacy LLM approval gate withou
   // Default (flag unset): no LLM approval gate, GitHub writes auto-approve.
   assert.equal(approvalGateEnabled({}), false);
   const off = buildCodexArgs(state, "/private/jobs/workspace", {}, TEST_GITHUB_CONNECTOR_ID);
-  assert.equal(off.includes(`apps.${JSON.stringify(TEST_GITHUB_CONNECTOR_ID)}.default_tools_approval_mode="approve"`), true);
+  assert.equal(off.includes(`apps.${TEST_GITHUB_CONNECTOR_ID}.default_tools_approval_mode="approve"`), true);
   assert.equal(off.some((item) => String(item).includes('approvals_reviewer="auto_review"')), false);
   assert.equal(off.some((item) => String(item).startsWith("auto_review.policy=")), false);
   // Flag on: legacy gate restored, but still never danger-full-access or approval bypass.
@@ -615,10 +615,10 @@ test("COWORK_CODEX_APPROVAL_GATE reactivates the legacy LLM approval gate withou
   assert.equal(approvalGateEnabled({ COWORK_CODEX_APPROVAL_GATE: "0" }), false);
   const on = buildCodexArgs(state, "/private/jobs/workspace", { COWORK_CODEX_APPROVAL_GATE: "1" }, TEST_GITHUB_CONNECTOR_ID);
   assert.equal(on.includes('approvals_reviewer="auto_review"'), true);
-  assert.equal(on.includes(`apps.${JSON.stringify(TEST_GITHUB_CONNECTOR_ID)}.approvals_reviewer="auto_review"`), true);
-  assert.equal(on.includes(`apps.${JSON.stringify(TEST_GITHUB_CONNECTOR_ID)}.default_tools_approval_mode="writes"`), true);
+  assert.equal(on.includes(`apps.${TEST_GITHUB_CONNECTOR_ID}.approvals_reviewer="auto_review"`), true);
+  assert.equal(on.includes(`apps.${TEST_GITHUB_CONNECTOR_ID}.default_tools_approval_mode="writes"`), true);
   assert.equal(on.some((item) => String(item).startsWith("auto_review.policy=")), true);
-  assert.equal(on.includes(`apps.${JSON.stringify(TEST_GITHUB_CONNECTOR_ID)}.default_tools_approval_mode="approve"`), false);
+  assert.equal(on.includes(`apps.${TEST_GITHUB_CONNECTOR_ID}.default_tools_approval_mode="approve"`), false);
   assert.equal(on.includes("--dangerously-bypass-approvals-and-sandbox"), false);
   assert.equal(on.includes("danger-full-access"), false);
   assert.equal(on.includes('approval_policy="never"'), false);
@@ -631,8 +631,17 @@ test("GitHub auto-approval targets the concrete connector id instead of the app 
   const args = buildCodexArgs(stateFor(id), "/private/jobs/workspace", {}, connectorId);
 
   assert.equal(args.includes('apps._default.default_tools_approval_mode="writes"'), true);
-  assert.equal(args.includes(`apps.${JSON.stringify(connectorId)}.default_tools_approval_mode="approve"`), true);
+  assert.equal(args.includes(`apps.${connectorId}.default_tools_approval_mode="approve"`), true);
   assert.equal(args.includes('apps.github.default_tools_approval_mode="approve"'), false);
+});
+
+test("GitHub connector CLI path uses the validated bare key without literal quote characters", () => {
+  const id = "CFT-20260719-112233-52515151";
+  const connectorId = TEST_GITHUB_CONNECTOR_ID;
+  const args = buildCodexArgs(stateFor(id), "/private/jobs/workspace", {}, connectorId);
+
+  assert.equal(args.includes(`apps.${connectorId}.default_tools_approval_mode="approve"`), true);
+  assert.equal(args.includes(`apps.${JSON.stringify(connectorId)}.default_tools_approval_mode="approve"`), false);
 });
 
 test("GitHub connector resolution reads bounded Codex desktop state and rejects unsafe values", async () => {

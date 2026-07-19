@@ -189,7 +189,10 @@ function githubWriteApprovalArgs(state, environment, githubConnectorId) {
   if (!GITHUB_CONNECTOR_ID_PATTERN.test(String(githubConnectorId || ""))) {
     throw new Error("GITHUB_CONNECTOR_ID_UNAVAILABLE");
   }
-  const githubAppPath = `apps.${tomlString(githubConnectorId)}`;
+  // Codex's CLI override parser splits dotted paths itself. Quoting this already validated bare
+  // key would retain the quote characters in the map key ("\"connector_...\"") and prevent the
+  // live connector id from matching its policy entry.
+  const githubAppPath = `apps.${githubConnectorId}`;
   if (approvalGateEnabled(environment)) {
     // Legacy LLM approval gate: route every candidate GitHub write through the automatic
     // approval reviewer before it can execute. Reactivated only by COWORK_CODEX_APPROVAL_GATE.
