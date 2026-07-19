@@ -35,8 +35,10 @@ const {
   classifyMcpApprovalFailure,
   createProgressPublisher,
   DEFAULT_TIMEOUT_MS,
+  MAX_CODEX_GLOBAL_STATE_BYTES,
   mergeTerminalObservation,
   PROGRESS_HEARTBEAT_MS,
+  resolveGithubConnectorId,
   runWorker,
   safeWorkerEnvironment,
   timeoutMsForState,
@@ -66,11 +68,27 @@ const CONTRACT = Object.freeze({
   deliverables: ["Ready pull request"],
 });
 const THREAD_ID = "019b4d83-7e12-7000-8000-123456789abc";
+const TEST_GITHUB_CONNECTOR_ID = "connector_examplegithub123";
+
+function codexGlobalState(connectorId = TEST_GITHUB_CONNECTOR_ID) {
+  return {
+    "electron-persisted-atom-state": {
+      environment: { github_connector_id: connectorId },
+    },
+  };
+}
 
 async function withJobs(run) {
   const parent = await fs.promises.mkdtemp(path.join(os.tmpdir(), "cowork-codex-jobs-test-"));
   const jobs = path.join(parent, "jobs");
-  const environment = { ...process.env, [JOB_STATE_ENV]: jobs };
+  const codexHome = path.join(parent, "codex-home");
+  await fs.promises.mkdir(codexHome, { recursive: true });
+  await fs.promises.writeFile(
+    path.join(codexHome, ".codex-global-state.json"),
+    JSON.stringify(codexGlobalState()),
+    "utf8",
+  );
+  const environment = { ...process.env, CODEX_HOME: codexHome, [JOB_STATE_ENV]: jobs };
   try { await run(environment, jobs); } finally { await fs.promises.rm(parent, { recursive: true, force: true }); }
 }
 
@@ -527,7 +545,7 @@ test("prompt and CLI arguments enforce one-way GitHub-only transport", () => {
   for (const invariant of ["GITHUB_MCP_ONLY", "NO_CLAUDE_MCP", "NO_FABLE_CALL", "NO_CLAUDE_COMMAND", "NO_ANTHROPIC_API"]) assert.match(prompt, new RegExp(invariant));
   assert.match(prompt, /exactly one Terra subagent/);
   assert.match(prompt, /concrete, testable revision/);
-  const args = buildCodexArgs(state, "/private/jobs/workspace");
+  const args = buildCodexArgs(state, "/private/jobs/workspace", {}, TEST_GITHUB_CONNECTOR_ID);
   assert.equal(args.includes("read-only"), true);
   assert.equal(args.includes("--json"), true);
   assert.equal(args.includes("--strict-config"), true);
@@ -536,8 +554,8 @@ test("prompt and CLI arguments enforce one-way GitHub-only transport", () => {
   // The LLM approval gate is removed by default: no approvals_reviewer, no auto_review.policy,
   // and the GitHub app's write tools auto-approve instead of routing writes through a reviewer.
   assert.equal(args.some((item) => String(item).includes('approvals_reviewer="auto_review"')), false);
-  assert.equal(args.includes('apps.github.default_tools_approval_mode="approve"'), true);
-  assert.equal(args.includes('apps.github.default_tools_approval_mode="writes"'), false);
+  assert.equal(args.includes(`apps.${JSON.stringify(TEST_GITHUB_CONNECTOR_ID)}.default_tools_approval_mode="approve"`), true);
+  assert.equal(args.includes(`apps.${JSON.stringify(TEST_GITHUB_CONNECTOR_ID)}.default_tools_approval_mode="writes"`), false);
   assert.equal(args.some((item) => String(item).startsWith("auto_review.policy=")), false);
   // Non-GitHub app writes are still not auto-approved (read-only base for everything else).
   assert.equal(args.includes('apps._default.default_tools_approval_mode="writes"'), true);
@@ -588,23 +606,55 @@ test("COWORK_CODEX_APPROVAL_GATE reactivates the legacy LLM approval gate withou
   const state = stateFor(id);
   // Default (flag unset): no LLM approval gate, GitHub writes auto-approve.
   assert.equal(approvalGateEnabled({}), false);
-  const off = buildCodexArgs(state, "/private/jobs/workspace", {});
-  assert.equal(off.includes('apps.github.default_tools_approval_mode="approve"'), true);
+  const off = buildCodexArgs(state, "/private/jobs/workspace", {}, TEST_GITHUB_CONNECTOR_ID);
+  assert.equal(off.includes(`apps.${JSON.stringify(TEST_GITHUB_CONNECTOR_ID)}.default_tools_approval_mode="approve"`), true);
   assert.equal(off.some((item) => String(item).includes('approvals_reviewer="auto_review"')), false);
   assert.equal(off.some((item) => String(item).startsWith("auto_review.policy=")), false);
   // Flag on: legacy gate restored, but still never danger-full-access or approval bypass.
   for (const truthy of ["1", "true", "on"]) assert.equal(approvalGateEnabled({ COWORK_CODEX_APPROVAL_GATE: truthy }), true);
   assert.equal(approvalGateEnabled({ COWORK_CODEX_APPROVAL_GATE: "0" }), false);
-  const on = buildCodexArgs(state, "/private/jobs/workspace", { COWORK_CODEX_APPROVAL_GATE: "1" });
+  const on = buildCodexArgs(state, "/private/jobs/workspace", { COWORK_CODEX_APPROVAL_GATE: "1" }, TEST_GITHUB_CONNECTOR_ID);
   assert.equal(on.includes('approvals_reviewer="auto_review"'), true);
-  assert.equal(on.includes('apps.github.approvals_reviewer="auto_review"'), true);
-  assert.equal(on.includes('apps.github.default_tools_approval_mode="writes"'), true);
+  assert.equal(on.includes(`apps.${JSON.stringify(TEST_GITHUB_CONNECTOR_ID)}.approvals_reviewer="auto_review"`), true);
+  assert.equal(on.includes(`apps.${JSON.stringify(TEST_GITHUB_CONNECTOR_ID)}.default_tools_approval_mode="writes"`), true);
   assert.equal(on.some((item) => String(item).startsWith("auto_review.policy=")), true);
-  assert.equal(on.includes('apps.github.default_tools_approval_mode="approve"'), false);
+  assert.equal(on.includes(`apps.${JSON.stringify(TEST_GITHUB_CONNECTOR_ID)}.default_tools_approval_mode="approve"`), false);
   assert.equal(on.includes("--dangerously-bypass-approvals-and-sandbox"), false);
   assert.equal(on.includes("danger-full-access"), false);
   assert.equal(on.includes('approval_policy="never"'), false);
   assert.equal(on.includes("read-only"), true);
+});
+
+test("GitHub auto-approval targets the concrete connector id instead of the app display slug", () => {
+  const id = "CFT-20260719-112233-51515151";
+  const connectorId = TEST_GITHUB_CONNECTOR_ID;
+  const args = buildCodexArgs(stateFor(id), "/private/jobs/workspace", {}, connectorId);
+
+  assert.equal(args.includes('apps._default.default_tools_approval_mode="writes"'), true);
+  assert.equal(args.includes(`apps.${JSON.stringify(connectorId)}.default_tools_approval_mode="approve"`), true);
+  assert.equal(args.includes('apps.github.default_tools_approval_mode="approve"'), false);
+});
+
+test("GitHub connector resolution reads bounded Codex desktop state and rejects unsafe values", async () => {
+  const parent = await fs.promises.mkdtemp(path.join(os.tmpdir(), "cowork-codex-connector-test-"));
+  const globalStatePath = path.join(parent, ".codex-global-state.json");
+  try {
+    await fs.promises.writeFile(globalStatePath, JSON.stringify(codexGlobalState()), "utf8");
+    assert.equal(resolveGithubConnectorId({ CODEX_HOME: parent }), TEST_GITHUB_CONNECTOR_ID);
+
+    for (const connectorId of ["github", "connector_bad-value", "connector_quoted\""]) {
+      await fs.promises.writeFile(globalStatePath, JSON.stringify(codexGlobalState(connectorId)), "utf8");
+      assert.equal(resolveGithubConnectorId({ CODEX_HOME: parent }), null);
+    }
+    await fs.promises.writeFile(globalStatePath, "{broken", "utf8");
+    assert.equal(resolveGithubConnectorId({ CODEX_HOME: parent }), null);
+    assert.equal(resolveGithubConnectorId({ CODEX_HOME: "relative/path" }), null);
+    assert.equal(resolveGithubConnectorId({ CODEX_HOME: parent }, {
+      lstatSync: () => ({ isFile: () => true, size: MAX_CODEX_GLOBAL_STATE_BYTES + 1 }),
+    }), null);
+  } finally {
+    await fs.promises.rm(parent, { recursive: true, force: true });
+  }
 });
 
 test("guardian addendum narrows the exact run without replacing built-in auto-review", () => {
@@ -1280,6 +1330,23 @@ test("worker requires ChatGPT login before starting a Codex turn", async () => w
   const report = statusJob(id, { environment });
   assert.equal(report.status, "blocked");
   assert.equal(report.code, "CHATGPT_LOGIN_REQUIRED");
+}));
+
+test("worker fails closed before spawn when the GitHub connector id is unavailable", async () => withJobs(async (environment) => {
+  const id = "CFT-20260719-112233-52525252";
+  writeJob(stateFor(id), { environment });
+  await fs.promises.unlink(path.join(environment.CODEX_HOME, ".codex-global-state.json"));
+  let started = false;
+  await runWorker(id, {
+    environment,
+    resolveExecutable: () => ({ executable: "/mock/codex", sanitizedPath: "codex" }),
+    readLoginMode: async () => "chatgpt",
+    spawnImpl: () => { started = true; throw new Error("must not start"); },
+  });
+  assert.equal(started, false);
+  const report = statusJob(id, { environment });
+  assert.equal(report.status, "blocked");
+  assert.equal(report.code, "GITHUB_CONNECTOR_ID_UNAVAILABLE");
 }));
 
 test("strict JSON envelope rejects Markdown, prose, oversized output, and missing PR identity", () => {

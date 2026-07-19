@@ -3,6 +3,7 @@
 
 const { spawn } = require("node:child_process");
 const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
 
 const { readLoginMode, removeApiKeyEnvironment, resolveCodexExecutable, terminateWithEscalation } = require("./bridge");
@@ -39,8 +40,10 @@ const {
 } = require("./github-observations");
 
 const MAX_JSONL_LINE_BYTES = 2 * 1024 * 1024;
+const MAX_CODEX_GLOBAL_STATE_BYTES = 8 * 1024 * 1024;
 const DEFAULT_TIMEOUT_MS = DEFAULT_WALL_CLOCK_LIMIT_MINUTES * 60 * 1000;
 const PROGRESS_HEARTBEAT_MS = 60 * 1000;
+const GITHUB_CONNECTOR_ID_PATTERN = /^connector_[A-Za-z0-9_]{1,128}$/;
 const GITHUB_WRITE_TOOLS = new Set([
   "create_blob",
   "create_branch",
@@ -153,6 +156,26 @@ function tomlString(value) {
   return JSON.stringify(String(value));
 }
 
+function resolveGithubConnectorId(environment = process.env, options = {}) {
+  const configuredHome = String(environment?.CODEX_HOME ?? "").trim();
+  const homeDirectory = options.homeDirectory || os.homedir();
+  const codexHome = configuredHome || path.join(homeDirectory, ".codex");
+  if (!path.isAbsolute(codexHome)) return null;
+  const globalStatePath = options.globalStatePath || path.join(codexHome, ".codex-global-state.json");
+  try {
+    const stat = (options.lstatSync || fs.lstatSync)(globalStatePath);
+    if (!stat.isFile() || stat.size <= 0 || stat.size > MAX_CODEX_GLOBAL_STATE_BYTES) return null;
+    const raw = (options.readFileSync || fs.readFileSync)(globalStatePath, "utf8");
+    const parsed = JSON.parse(raw);
+    const connectorId = parsed?.["electron-persisted-atom-state"]?.environment?.github_connector_id;
+    return typeof connectorId === "string" && GITHUB_CONNECTOR_ID_PATTERN.test(connectorId)
+      ? connectorId
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 // The LLM approval gate is removed by default. Setting COWORK_CODEX_APPROVAL_GATE to a truthy
 // value ("1", "true", or "on") reactivates the legacy automatic approval reviewer for GitHub
 // writes; every other value (and the unset default) runs GitHub writes without approval
@@ -162,25 +185,29 @@ function approvalGateEnabled(environment = process.env) {
   return flag === "1" || flag === "true" || flag === "on";
 }
 
-function githubWriteApprovalArgs(state, environment) {
+function githubWriteApprovalArgs(state, environment, githubConnectorId) {
+  if (!GITHUB_CONNECTOR_ID_PATTERN.test(String(githubConnectorId || ""))) {
+    throw new Error("GITHUB_CONNECTOR_ID_UNAVAILABLE");
+  }
+  const githubAppPath = `apps.${tomlString(githubConnectorId)}`;
   if (approvalGateEnabled(environment)) {
     // Legacy LLM approval gate: route every candidate GitHub write through the automatic
     // approval reviewer before it can execute. Reactivated only by COWORK_CODEX_APPROVAL_GATE.
     return [
       "-c", 'approvals_reviewer="auto_review"',
       "-c", 'apps._default.approvals_reviewer="auto_review"',
-      "-c", 'apps.github.default_tools_approval_mode="writes"',
-      "-c", 'apps.github.approvals_reviewer="auto_review"',
+      "-c", `${githubAppPath}.default_tools_approval_mode="writes"`,
+      "-c", `${githubAppPath}.approvals_reviewer="auto_review"`,
       "-c", `auto_review.policy=${tomlString(buildAutoReviewPolicy(state))}`,
     ];
   }
   // Default: GitHub write tools auto-approve and run without LLM approval interception. Safety
   // now rests on the read-only sandbox, the fail-closed host observer, the guard family, and
   // branch protection on the base branch of the target repositories.
-  return ["-c", 'apps.github.default_tools_approval_mode="approve"'];
+  return ["-c", `${githubAppPath}.default_tools_approval_mode="approve"`];
 }
 
-function buildCodexArgs(state, workspace, environment = process.env) {
+function buildCodexArgs(state, workspace, environment = process.env, githubConnectorId = null) {
   const shared = [
     "--json",
     "--strict-config",
@@ -190,7 +217,7 @@ function buildCodexArgs(state, workspace, environment = process.env) {
     "-c", 'sandbox_mode="read-only"',
     "-c", 'approval_policy="on-request"',
     "-c", 'apps._default.default_tools_approval_mode="writes"',
-    ...githubWriteApprovalArgs(state, environment),
+    ...githubWriteApprovalArgs(state, environment, githubConnectorId),
   ];
   if (state.request.kind === "resume") {
     return ["exec", "resume", ...shared, state.internal.threadId, "-"];
@@ -528,6 +555,16 @@ async function runWorker(jobId, options = {}) {
     finalizeTerminalJob(jobId, { status: "blocked", phase: "blocked", publicCode: "CHATGPT_LOGIN_REQUIRED" }, observations, environment);
     return;
   }
+  let githubConnectorId = null;
+  try {
+    githubConnectorId = (options.resolveGithubConnectorId || resolveGithubConnectorId)(environment);
+  } catch {
+    githubConnectorId = null;
+  }
+  if (!githubConnectorId) {
+    finalizeTerminalJob(jobId, { status: "blocked", phase: "blocked", publicCode: "GITHUB_CONNECTOR_ID_UNAVAILABLE" }, observations, environment);
+    return;
+  }
   const workspace = path.join(resolveJobsPath(environment), `.${jobId}-workspace`);
   fs.mkdirSync(workspace, { recursive: true, mode: 0o700 });
   fs.chmodSync(workspace, 0o700);
@@ -539,7 +576,7 @@ async function runWorker(jobId, options = {}) {
   }), environment);
   if (state.status !== "running") return;
 
-  const args = buildCodexArgs(state, workspace, environment);
+  const args = buildCodexArgs(state, workspace, environment, githubConnectorId);
   const prompt = state.request.kind === "resume" ? buildResumePrompt(state) : buildStartPrompt(state);
   const spawnImpl = options.spawnImpl || spawn;
   const timeoutMs = options.timeoutMs ?? timeoutMsForState(state);
@@ -888,6 +925,7 @@ if (require.main === module) {
 
 module.exports = {
   DEFAULT_TIMEOUT_MS,
+  MAX_CODEX_GLOBAL_STATE_BYTES,
   MAX_JSONL_LINE_BYTES,
   MAX_RESULT_BYTES,
   APPROVAL_REREQUEST_PREFIX,
@@ -908,6 +946,7 @@ module.exports = {
   createApprovalRetryTracker,
   createProgressPublisher,
   mergeTerminalObservation,
+  resolveGithubConnectorId,
   runWorker,
   safeWorkerEnvironment,
   timeoutMsForState,

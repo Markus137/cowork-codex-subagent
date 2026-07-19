@@ -27,9 +27,12 @@ adds a GitHub Action, or invokes a local review runner.
 The Codex runtime's automatic approval reviewer, which was a separate permission
 boundary for side-effecting GitHub MCP calls, is removed. By default the worker
 combines `approval_policy="on-request"`, the GitHub app's write tools
-auto-approving (`apps.github.default_tools_approval_mode="approve"`), strict
+auto-approving under its concrete connector id
+(`apps."connector_...".default_tools_approval_mode="approve"`), strict
 configuration parsing, the read-only sandbox, the built-in guardian baseline,
-and the fail-closed host observer. It never uses yolo or full-access mode.
+and the fail-closed host observer. Connector state is resolved before launch and
+missing or invalid state blocks the job; other app writes retain the global
+`writes` mode. It never uses yolo or full-access mode.
 Branch protection on the base branch of the target repositories is the
 compensating pre-merge control. Setting `COWORK_CODEX_APPROVAL_GATE` reactivates
 the reviewer (restoring `approvals_reviewer="auto_review"` and GitHub write
