@@ -10,6 +10,28 @@ Repository names in the recorded observations below are neutral placeholders
 (`example-org/web-template`, `example-org/example-app`); the observations
 themselves are otherwise unchanged.
 
+## 1.3.2
+
+Fixes the remaining deterministic first-write abort in `1.3.1`. A live
+`1.3.1` run generated the concrete GitHub connector id correctly, yet its first
+`create_branch` still returned `user cancelled MCP tool call` with a zero
+duration and no approval-request event.
+
+**Second red-test reproduction.** `1.3.1` emitted the CLI dotted path as
+`apps."connector_...".default_tools_approval_mode="approve"`. Codex's override
+parser retained those quote characters in the app-map key. An app-server
+`config/read` showed a key shaped as `"\"connector_...\""`, which could not match
+the unquoted connector id carried by the GitHub tool. The global `writes`
+fallback therefore remained effective. A new test first failed by requiring the
+bare-key form and rejecting the literal-quote form.
+
+**Bare-key fix.** Connector ids already pass the narrow
+`^connector_[A-Za-z0-9_]{1,128}$` grammar, so the worker now safely emits
+`apps.connector_examplegithub123.default_tools_approval_mode="approve"`
+without quote characters. The optional legacy reviewer path uses the same key.
+Every other app keeps the global `writes` mode, and missing or unsafe connector
+state still fails closed before spawn.
+
 ## 1.3.1
 
 Fixes the deterministic first-write abort that remained after the `1.3.0`
@@ -27,10 +49,10 @@ non-interactive `codex exec` and immediately returned the cancellation string.
 
 **Connector-specific fix.** The worker now resolves the concrete GitHub
 connector id from a bounded Codex desktop state file before launch, validates it
-against a narrow grammar, quotes it as a TOML path segment, and applies
-`default_tools_approval_mode="approve"` to that exact connector. The optional
-legacy reviewer path targets the same resolved id. The global default stays
-`writes`, so non-GitHub app mutations are not broadened.
+against a narrow grammar, and attempts to apply
+`default_tools_approval_mode="approve"` to that exact connector. This first
+correction still quoted the CLI path segment; `1.3.2` documents and corrects
+that follow-up defect.
 
 **Fail-closed state handling.** Missing, malformed, symlinked, empty, or
 oversized connector state returns `GITHUB_CONNECTOR_ID_UNAVAILABLE` before the
