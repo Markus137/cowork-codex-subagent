@@ -1,0 +1,55 @@
+{
+  "source_run_id": "CFT-20260719-181259-240063E0",
+  "sanitized": true,
+  "repository": "example-org/example-app",
+  "base_branch": "main",
+  "task_branch": "sol/cft-20260719-181259-240063e0",
+  "task_type": "implementation",
+  "forwarded_findings": [
+    {
+      "body": "![P2 Badge] Apply the bounded correction.",
+      "url": "https://github.com/example-org/example-app/pull/42#discussion_r240063",
+      "path": "src/a.js",
+      "line": 7
+    }
+  ],
+  "envelope": {
+    "run_id": "CFT-20260719-181259-240063E0",
+    "status": "complete",
+    "reason_code": null,
+    "repository": "example-org/example-app",
+    "base_branch": "main",
+    "task_branch": "sol/cft-20260719-181259-240063e0",
+    "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "pr_number": 42,
+    "pr_url": "https://github.com/example-org/example-app/pull/42",
+    "work_summary": "Applied and remotely verified the bounded correction.",
+    "resources_consulted": [{ "resource": "src/a.js", "evidence": "The corrected element begins on line 7." }],
+    "changes_or_artifacts": [{ "artifact": "src/a.js", "kind": "modified_file", "evidence": "The correction is branch-effective." }],
+    "audit_evidence": null,
+    "tests_and_verification": ["The final task-branch file and pull request were re-read."],
+    "SOL_to_Terra_evidence": {
+      "sol_revision": "SOL requested a focused correction.",
+      "sol_v2_review": "SOL accepted the corrected V2.",
+      "terra_v1": "Terra inspected the finding read-only.",
+      "terra_v2": "Terra returned the bounded correction plan."
+    },
+    "finding_dispositions": [{
+      "url": "https://github.com/example-org/example-app/blob/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/src/a.js#L7",
+      "path": "src/a.js",
+      "line": 7,
+      "disposition": "",
+      "evidence": "The forwarded finding was implemented at the cited line."
+    }],
+    "risks_or_blockers": [],
+    "next_action": "Run the quality gate."
+  },
+  "expected_status": "blocked",
+  "expected_code": "CODEX_RESULT_ENVELOPE_INVALID",
+  "expected_phase": "result_validation",
+  "expected_validation_error": {
+    "path": "finding_dispositions[0].disposition",
+    "rule": "value_out_of_range",
+    "expected": "non-empty string"
+  }
+}
