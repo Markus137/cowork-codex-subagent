@@ -143,7 +143,9 @@ const RESULT_ENVELOPE_SCHEMA = Object.freeze({
     line: scalarDefinition(EXPECTED.POSITIVE_INTEGER_OR_NULL, null),
     disposition: scalarDefinition(EXPECTED.NON_EMPTY_STRING, "verified"),
     evidence: scalarDefinition(EXPECTED.NON_EMPTY_STRING, "Disposition evidence."),
-  }, Object.freeze([])),
+  }, Object.freeze([]), {
+    notes: 'disposition must be a non-empty string, for example "fixed", "rejected", or "not_applicable"',
+  }),
   risks_or_blockers: stringListDefinition(Object.freeze([])),
   next_action: scalarDefinition(EXPECTED.NON_EMPTY_STRING, "Next caller action."),
 });
