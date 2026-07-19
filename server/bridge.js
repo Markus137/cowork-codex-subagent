@@ -6,7 +6,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
-const PLUGIN_VERSION = "1.3.2";
+const PLUGIN_VERSION = "1.3.3";
 const FALLBACK_CODEX_PATH = "/Applications/ChatGPT.app/Contents/Resources/codex";
 const ROLE_STATE_VERSION = 1;
 const ROLE_STATE_ENV = "COWORK_CODEX_PREFLIGHT_ROLES_PATH";
