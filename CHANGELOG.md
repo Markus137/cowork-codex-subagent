@@ -10,6 +10,34 @@ Repository names in the recorded observations below are neutral placeholders
 (`example-org/web-template`, `example-org/example-app`); the observations
 themselves are otherwise unchanged.
 
+## 1.3.1
+
+Fixes the deterministic first-write abort that remained after the `1.3.0`
+approval-reviewer removal. A live `1.3.0` run completed all read-only GitHub
+inspection and SOL/Terra review, then returned `user cancelled MCP tool call` in
+zero milliseconds on its first `create_branch`, with no approval-request event.
+
+**Red-test reproduction.** `1.3.0` emitted the intended exception as
+`apps.github.default_tools_approval_mode="approve"`, while Codex resolves app
+policy by the concrete connector id from tool metadata. The new regression test
+supplied a neutral `connector_...` id and failed because the generated arguments
+contained only the unmatched `apps.github` key. The global app default therefore
+remained `writes`, which requested an unavailable interactive approval inside
+non-interactive `codex exec` and immediately returned the cancellation string.
+
+**Connector-specific fix.** The worker now resolves the concrete GitHub
+connector id from a bounded Codex desktop state file before launch, validates it
+against a narrow grammar, quotes it as a TOML path segment, and applies
+`default_tools_approval_mode="approve"` to that exact connector. The optional
+legacy reviewer path targets the same resolved id. The global default stays
+`writes`, so non-GitHub app mutations are not broadened.
+
+**Fail-closed state handling.** Missing, malformed, symlinked, empty, or
+oversized connector state returns `GITHUB_CONNECTOR_ID_UNAVAILABLE` before the
+Codex child is spawned. Offline tests cover the originally red mismatch, valid
+and invalid connector state, concrete-id targeting for both gate modes, and the
+no-spawn terminal outcome.
+
 ## 1.3.0
 
 Removed the LLM approval gate for GitHub writes. The runtime automatic approval

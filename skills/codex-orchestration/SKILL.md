@@ -11,7 +11,7 @@ description: >
   not use for general fileless work without a target repository, a short
   follow-up question, installation explanation, status check, confirmation,
   greeting, or a clarification required before safe delegation.
-version: 1.3.0
+version: 1.3.1
 ---
 
 # GitHub-only Codex-First orchestration
@@ -290,11 +290,13 @@ new final head.
 
 The LLM approval gate is removed. By default the host worker runs Codex
 read-only with `approval_policy="on-request"`, `--strict-config`, ignored user
-config, and the GitHub app's write tools auto-approving
-(`apps.github.default_tools_approval_mode="approve"`). No automatic approval
-reviewer intercepts GitHub writes, so rule-conformant writes are no longer
-blocked by a non-deterministic LLM gate (the "Bug 8" observation, now obsolete
-by removal).
+config, and the GitHub app's write tools auto-approving under the concrete
+connector id resolved from bounded Codex desktop state
+(`apps."connector_...".default_tools_approval_mode="approve"`). Missing or
+invalid connector state blocks before Codex starts; non-GitHub app writes keep
+the global `writes` mode. No automatic approval reviewer intercepts GitHub
+writes, so rule-conformant writes are no longer blocked by a non-deterministic
+LLM gate (the "Bug 8" observation, now obsolete by removal).
 
 Safety no longer depends on that reviewer. The compensating controls are branch
 protection on the base branch of the target repositories (configured by the

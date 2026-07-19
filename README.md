@@ -3,7 +3,7 @@
 A Cowork/Claude Code plugin that lets Claude hand a repository task to OpenAI
 Codex and drive it to a finished, non-draft GitHub pull request — safely,
 without ever cloning the repo, running local Git, or exposing an API key.
-(Version 1.3.0.)
+(Version 1.3.1.)
 
 Everything happens through GitHub as the shared mailbox: Claude (in the "Fable"
 intake role) starts one bounded Codex run, polls GitHub for the branch, commit,
@@ -227,9 +227,12 @@ inner blocked/no-PR outcome cannot be stored as complete or resumed.
   event.
 - GitHub writes run without an LLM approval gate by default. The automatic
   approval reviewer that formerly gated them is removed; the GitHub app's write
-  tools auto-approve (`apps.github.default_tools_approval_mode="approve"`) and
-  safety rests on branch protection on the base branch of the target
-  repositories, the fail-closed host observer, and the guard family. Setting
+  tools auto-approve through the concrete connector id resolved from Codex
+  desktop state (`apps."connector_...".default_tools_approval_mode="approve"`).
+  A missing, malformed, symlinked, or oversized state file fails closed before
+  Codex starts. Other app writes retain the global `writes` mode. Safety rests
+  on branch protection on the base branch of the target repositories, the
+  fail-closed host observer, and the guard family. Setting
   `COWORK_CODEX_APPROVAL_GATE` reactivates that reviewer as a runtime safety
   control only — not Fable, SOL, Terra, an extra manager cycle, or the GitHub
   code review. The plugin never enables `--yolo` or danger-full-access.
