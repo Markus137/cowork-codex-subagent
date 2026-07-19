@@ -10,6 +10,28 @@ Repository names in the recorded observations below are neutral placeholders
 (`example-org/web-template`, `example-org/example-app`); the observations
 themselves are otherwise unchanged.
 
+## 1.3.3
+
+Prevents a successfully applied correction resume from losing its usable result
+to an empty `finding_dispositions[].disposition` value. The validator correctly
+rejected that value fail-closed, but the generated result-envelope example used
+an empty findings list and therefore never showed the disposition example held
+by the schema.
+
+**Red-test reproduction.** A sanitized replay fixture models the observed
+correction-resume envelope with `finding_dispositions[0].disposition` set to an
+empty string. The regression test proves that validation reports the exact
+`finding_dispositions[0].disposition` path with `value_out_of_range`, exercises
+the worker's `blocked` / `result_validation` / null-result outcome, and requires
+the generated resume prompt to state non-empty disposition semantics with
+concrete examples. That prompt assertion fails against `1.3.2`.
+
+**Prompt-contract fix.** The programmatic result-envelope contract now states
+that each disposition must be a non-empty string and gives `fixed`, `rejected`,
+and `not_applicable` examples. Both start and resume prompts inherit the same
+schema-driven wording. Validation remains unchanged and continues to reject
+empty dispositions fail-closed.
+
 ## 1.3.2
 
 Fixes the remaining deterministic first-write abort in `1.3.1`. A live
