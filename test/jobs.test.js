@@ -1020,6 +1020,59 @@ test("8DA59548 sanitized replay attributes the long gap to model reasoning, not 
   assert.equal(JSON.stringify(replay).includes("audit_evidence"), false);
 });
 
+test("correction-resume prompt prevents an empty finding disposition before fail-closed result validation", async () => withJobs(async (environment) => {
+  const replay = JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures", "replay-result-envelope-empty-disposition.json"), "utf8"));
+  const id = replay.source_run_id;
+  const base = stateFor(id);
+  const state = stateFor(id, {
+    contract: {
+      ...base.contract,
+      repository: replay.repository,
+      baseBranch: replay.base_branch,
+      taskType: replay.task_type,
+    },
+    taskBranch: replay.task_branch,
+    request: { kind: "resume", findings: replay.forwarded_findings },
+    internal: { threadId: THREAD_ID },
+  });
+  const context = {
+    runId: id,
+    repository: replay.repository,
+    baseBranch: replay.base_branch,
+    taskBranch: replay.task_branch,
+    taskType: replay.task_type,
+    auditPath: null,
+  };
+  assert.throws(
+    () => parseAndValidateEnvelope(replay.envelope, context),
+    (error) => {
+      assert.deepEqual(error.publicValidationError, replay.expected_validation_error);
+      return true;
+    },
+  );
+  writeJob(state, { environment });
+  const child = completedChild([
+    { type: "thread.started", thread_id: THREAD_ID },
+    ...verifiedPrEvents(id),
+    { type: "item.completed", item: { type: "agent_message", text: JSON.stringify(replay.envelope) } },
+    { type: "turn.completed" },
+  ]);
+  await runWorker(id, {
+    environment,
+    resolveExecutable: () => ({ executable: "/mock/codex", sanitizedPath: "codex" }),
+    readLoginMode: async () => "chatgpt",
+    spawnImpl: () => child,
+    timeoutMs: 1000,
+  });
+  assert.match(child.prompt, /disposition must be a non-empty string, for example "fixed", "rejected", or "not_applicable"/);
+  const report = resultJob(id, { environment });
+  assert.equal(report.status, replay.expected_status);
+  assert.equal(report.phase, replay.expected_phase);
+  assert.equal(report.code, replay.expected_code);
+  assert.deepEqual(report.validation_error, replay.expected_validation_error);
+  assert.equal(report.result, null);
+}));
+
 test("worker rejects a terminal model-only approval_pending envelope", async () => withJobs(async (environment) => {
   const id = "CFT-20260715-112233-64646464";
   writeJob(stateFor(id), { environment });

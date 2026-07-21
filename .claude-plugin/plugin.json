@@ -1,6 +1,6 @@
 {
   "name": "cowork-codex-subagent",
-  "version": "1.3.2",
+  "version": "1.3.3",
   "description": "Cowork-native host bridge for bounded GitHub-only Codex-First orchestration, status, resume, and review.",
   "author": {
     "name": "Markus Streifinger"
